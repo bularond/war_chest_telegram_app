@@ -45,6 +45,35 @@ npm run smoke
 
 ## Боевой режим
 
+В одну команду, через Docker:
+
+```bash
+npm run deploy        # docker compose up -d --build
+```
+
+Собирается всё внутри образа (`shared` → `bots` → `server` → `client`), наружу
+торчит один контейнер: сервер сам отдаёт собранный клиент. База — профили и
+история — лежит в томе `war-chest-data`, поэтому переживает пересборку; лобби и
+партии живут в памяти и умирают вместе с контейнером.
+
+Настройки берутся из окружения или из `.env`, если он есть. Для настоящего
+развёртывания:
+
+```bash
+cp .env.example .env      # TELEGRAM_BOT_TOKEN=... и NODE_ENV=production
+npm run deploy
+```
+
+Без токена сервер поднимется в dev-режиме — подпись Telegram не проверяется,
+личность берётся из `localStorage`. Это удобно, чтобы посмотреть сборку
+локально той же командой. Порт снаружи — `PORT` (по умолчанию 8787):
+`PORT=8788 npm run deploy` поднимет рядом со всем, что уже занимает 8787.
+
+Дальше: `docker compose logs -f`, `docker compose down`, а
+`docker compose down -v` снесёт и базу.
+
+Вручную, без Docker:
+
 ```bash
 export TELEGRAM_BOT_TOKEN=123456:AA...    # обязателен при NODE_ENV=production
 export NODE_ENV=production

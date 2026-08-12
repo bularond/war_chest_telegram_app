@@ -13,7 +13,8 @@ David Thompson, AEG). Монорепозиторий npm workspaces, TypeScript,
 npm install
 npm run typecheck                # tsc -b по всем пяти пакетам
 npm test                         # 118 движок + 67 боты + 71 арена + 9 сервер + 17 клиент
-npm run build                    # shared → server → client
+npm run build                    # shared → bots → server → client
+npm run deploy                   # docker compose up -d --build: один контейнер, том под базу
 npm run dev -w @wc/server        # :8787, node --watch
 npm run dev -w @wc/client        # :5173, проксирует /ws на сервер
 npm run smoke                    # полная партия через WebSocket по-настоящему
@@ -228,7 +229,12 @@ nohup caffeinate -i -w $(pgrep -f lab-cli.js | head -1) > /dev/null 2>&1 &
   тестом `accepts the next request straight from its own notification`.
 - **Бот — игрок, а не судья.** Его ход проходит через тот же `applyAction` с
   проверкой, и его рука так же скрыта: клиент получает `viewFor` только для
-  живых игроков (`rooms.humanMembers`), места ботов в рассылку не попадают.
+  живых игроков, места ботов в рассылку не попадают.
+- **Рассылка идёт по `rooms.seatedMembers`, а не по `humanMembers`.** Ушедший из
+  идущей партии сохраняет место (может вернуться), но за столом уже не сидит.
+  Если слать состояние всем, у кого есть место, `game.view` прилетит следом за
+  ответом «стола у вас нет» и вернёт человека на экран партии — выход начнёт
+  требовать двух нажатий. Ловится тестом в `rooms.test.ts`.
 - **`simulate` не проверяет ход, `apply` проверяет.** Сервер обязан звать
   `applyAction`/`apply` с проверкой: это единственное, что стоит между
   подделанным сообщением по WebSocket и состоянием партии. `simulate` — только

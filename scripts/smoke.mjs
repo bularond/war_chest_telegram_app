@@ -1,6 +1,8 @@
 import WebSocket from 'ws';
 
-const URL = 'ws://localhost:8791/ws';
+// Point it at a server that is already up — a container, say — with
+// SMOKE_URL=ws://localhost:8788/ws.
+const URL = process.env.SMOKE_URL ?? 'ws://localhost:8791/ws';
 
 function client(name) {
   const ws = new WebSocket(URL);

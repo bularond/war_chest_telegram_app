@@ -13,6 +13,7 @@
   "dependencies": {
     "@fastify/static": "^10.1.3",
     "@fastify/websocket": "^11.0.2",
+    "@wc/bots": "*",
     "@wc/shared": "*",
     "fastify": "^5.2.1"
   },

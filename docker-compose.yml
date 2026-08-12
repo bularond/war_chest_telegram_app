@@ -1,0 +1,40 @@
+# One container, one command: `npm run deploy` (docker compose up -d --build).
+#
+# Values below come from the shell or from `.env` if it exists — compose reads
+# that file on its own, and it is not required. Copy `.env.example` to `.env`,
+# put the BotFather token in it and set NODE_ENV=production for a real
+# deployment; without a token the server runs its development login instead,
+# which is what makes the same command useful for a look at the thing locally.
+
+services:
+  server:
+    build: .
+    image: war-chest:latest
+    container_name: war-chest
+    restart: unless-stopped
+    ports:
+      - '${PORT:-8787}:8787'
+    environment:
+      # Fixed inside the container; the host side is the port mapping above.
+      PORT: 8787
+      HOST: 0.0.0.0
+      # Always the volume: a relative path would put the database in a layer
+      # that the next build throws away.
+      DB_PATH: /data/war-chest.db
+      NODE_ENV: ${NODE_ENV:-development}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      BOT_WORKERS: ${BOT_WORKERS:-2}
+      BOT_THINK_MS: ${BOT_THINK_MS:-600}
+      BOT_DEADLINE_MS: ${BOT_DEADLINE_MS:-5000}
+    volumes:
+      - war-chest-data:/data
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8787/health']
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  war-chest-data:

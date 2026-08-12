@@ -1,0 +1,25 @@
+# The build needs sources and nothing else. Everything here is either rebuilt
+# inside the image, or belongs to the workbench rather than to the server.
+.git
+.github
+node_modules
+**/node_modules
+**/dist
+**/dist-types
+**/*.tsbuildinfo
+.env
+.env.local
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+design
+rulebooks
+war_chest_pnp
+warchest.units.clean
+weights
+docs
+.DS_Store
+**/.DS_Store
+Dockerfile
+docker-compose.yml

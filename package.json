@@ -12,7 +12,8 @@
     "packages/tooling"
   ],
   "scripts": {
-    "build": "npm run build -w @wc/shared && npm run build -w @wc/server && npm run build -w @wc/client",
+    "build": "npm run build -w @wc/shared && npm run build -w @wc/bots && npm run build -w @wc/server && npm run build -w @wc/client",
+    "deploy": "docker compose up -d --build",
     "dev": "npm run dev -w @wc/server & npm run dev -w @wc/client",
     "test": "npm run test -w @wc/shared && npm run test -w @wc/bots && npm run test -w @wc/tooling && npm run test -w @wc/server && npm run test -w @wc/client",
     "smoke": "node scripts/smoke.mjs",
