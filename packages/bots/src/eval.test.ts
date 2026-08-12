@@ -389,6 +389,65 @@ describe('what has been traded away', () => {
   });
 });
 
+describe('each side measured against what it needs', () => {
+  /**
+   * A board with one unit a side and nothing else, so only the distances speak.
+   * Seat 0 starts holding '4,0' and '7,0'; seat 1 holds '3,4' and '6,5'.
+   */
+  const facing = (mine: HexId, theirs: HexId): GameState => {
+    const state = game();
+    state.units = {};
+    state.phase = 'play';
+    place(state, 0, 'swordsman', mine);
+    place(state, 1, 'swordsman', theirs);
+    return state;
+  };
+
+  it('sees an enemy standing on a marker of ours, where proximity does not', () => {
+    // Seat 0 holds '4,0' from the setup. An enemy unit standing on it can claim
+    // it on its next coin, and a flip moves the score twice — once for them and
+    // once against us. `proximity` excludes '4,0' from its list by construction,
+    // because the list is "locations we do not control".
+    const onOurMarker = facing('2,2' as HexId, '4,0' as HexId);
+    const elsewhere = facing('2,2' as HexId, '5,2' as HexId);
+
+    const byProximity = (s: GameState) => evaluate(s, 0, only({ proximity: 1, material: 0 }));
+    const byApproach = (s: GameState) => evaluate(s, 0, only({ approach: 1, material: 0 }));
+
+    expect(byApproach(onOurMarker)).toBeLessThan(byApproach(elsewhere));
+    // The old term is not merely blind to it — it reads the position as no worse
+    // than the one where the enemy is standing in an empty field.
+    expect(byProximity(onOurMarker)).toBeGreaterThanOrEqual(byProximity(elsewhere));
+  });
+
+  it('does not charge us for an enemy sitting on a location it already holds', () => {
+    // '3,4' belongs to seat 1 from the setup. A unit parked on it threatens
+    // nothing; `markers` has already counted the marker underneath it. Under
+    // `proximity` that hex is in *our* target list at a distance of zero, so it
+    // scores the maximum against us.
+    const parked = facing('2,2' as HexId, '3,4' as HexId);
+    const byProximity = evaluate(parked, 0, only({ proximity: 1, material: 0 }));
+    const byApproach = evaluate(parked, 0, only({ approach: 1, material: 0 }));
+    expect(byApproach).toBeGreaterThan(byProximity);
+  });
+
+  it('still rewards our own units for closing on what we want', () => {
+    const away = facing('2,2' as HexId, '8,2' as HexId);
+    const onto = facing('2,3' as HexId, '8,2' as HexId); // '2,3' is a location
+    expect(evaluate(onto, 0, only({ approach: 1, material: 0 }))).toBeGreaterThan(
+      evaluate(away, 0, only({ approach: 1, material: 0 })),
+    );
+  });
+
+  it('is a mirror: what is good for us reads as bad from the other chair', () => {
+    const state = facing('2,3' as HexId, '8,2' as HexId);
+    expect(evaluate(state, 0, only({ approach: 1, material: 0 }))).toBeCloseTo(
+      -evaluate(state, 1, only({ approach: 1, material: 0 })),
+      10,
+    );
+  });
+});
+
 describe('the feature vector', () => {
   // Two implementations of one formula: `evaluate` computes only what carries a
   // weight, `featureVector` computes everything. They will drift apart the first

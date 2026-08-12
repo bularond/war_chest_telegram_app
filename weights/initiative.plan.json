@@ -1,0 +1,17 @@
+{
+  "note": "The Initiative Marker, tested in a band where it could be accepted.\n\n`scripts/feature-power.mjs` measures the one thing an evaluation term has to do: tell the moves at the root apart. It plays every root move, rolls out from each, and compares the spread of the means against the error on one of them. `initiative` scores 34.4 — by far the highest in the evaluation, eleven times the win condition itself. That is not subtlety; claiming the marker is a move, and it flips the term from −1 to +1 while everything else moves in hundredths.\n\nWhich means a weight on it is not comparable to the others. Multiplying weight by signal puts every term in one currency — how far it moves the gap between two root moves — and the accepted terms live between 0.0036 (idleHand) and 0.0332 (markers). `initiative` has been tested exactly once, at 0.1, which is an influence of 0.045: larger than the win condition and outside the band entirely. It scored 48.7% over 1200 games, which is not a rejection but a failure to converge — and it was measured on the `eval@1` bot at 60 ms a move, before material doubled, before proximity existed, before the search got three times faster, before the draft table and before the rollout noise.\n\nSo the untested region is everything below 0.073. Two points inside the band.\n\nThe mechanism, for what it is worth as a prior: the marker decides who moves first next round, and claiming it is what the bot does with 9.5% of its turns — more often than it claims a location. The rollout policy ranks claiming the marker ninth of eleven and almost never does it, so the search's estimate of what the marker is worth comes from a policy that ignores it.",
+  "proposals": [
+    {
+      "id": "initiative-002",
+      "note": "Influence 0.009 — between `reserve` and `proximity`, in the middle of the band the accepted terms occupy.",
+      "set": { "initiative": 0.02 },
+      "draftMode": "draft"
+    },
+    {
+      "id": "initiative-004",
+      "note": "Influence 0.018, the size of `proximity`. Two points because one is not a curve, and because the earlier test at four times this told us only that four times this is too much.",
+      "set": { "initiative": 0.04 },
+      "draftMode": "draft"
+    }
+  ]
+}

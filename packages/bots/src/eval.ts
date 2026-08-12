@@ -117,6 +117,30 @@ export interface EvalWeights {
   /** How far our units are from locations we do not hold, as the crow flies. */
   readonly proximity: number;
   /**
+   * The same idea, but each side measured against the locations *it* still needs.
+   *
+   * `proximity` subtracts the enemy's closeness to **our** list of targets, and
+   * that list is defined as "locations we do not control". Two things follow, and
+   * both are wrong about the game.
+   *
+   * An enemy standing on a location it already holds is inside our target list at
+   * a distance of zero, so it contributes the maximum and is charged against us
+   * as if it were bearing down on something. It is not; it is sitting still on a
+   * marker `markers` has already counted.
+   *
+   * And the locations we *do* hold are excluded from the list entirely, so an
+   * enemy massing next to one of them reads as nothing at all. `canControlHere`
+   * lets a unit standing on a location claim it whenever the marker there is not
+   * already its own — markers flip, and a flip moves the score twice, once for
+   * them and once against us. The evaluation cannot see it coming.
+   *
+   * Here each side is measured against the locations that side does not control,
+   * which is what each side is actually trying to reach. Meant to replace
+   * `proximity` rather than to sit beside it: they measure the same thing, and
+   * one of them measures it wrong.
+   */
+  readonly approach: number;
+  /**
    * The same thing, but counting steps around whatever is in the way.
    *
    * The straight-line version was a deliberate compromise: it runs at the end of
@@ -174,6 +198,8 @@ export const BASE_WEIGHTS: EvalWeights = {
   // stalled here twice: its ×2 step from 0.15 reaches 0.3, which is not far
   // enough to show anything.
   reserve: 0.48,
+  // Untried as of eval@5: the symmetric reading of `proximity`.
+  approach: 0,
   // Untried as of eval@3: material has always been coin counting.
   scarcity: 0,
   reach: 0,
@@ -274,6 +300,15 @@ export function evaluate(state: GameState, seat: Seat, weights: EvalWeights = BA
     // location is worth more than the same unit idling behind the line.
     const open = board.locations.filter((loc) => state.control[loc] !== me.team);
     score += weights.proximity * (closeness(state, me.team, open) - closeness(state, foeTeam, open));
+  }
+
+  if ((weights.approach ?? 0) !== 0) {
+    // Two target lists, one per side. The sweep is the same cheap straight-line
+    // one `proximity` uses; only the question it is asked has changed.
+    const mineOpen = board.locations.filter((loc) => state.control[loc] !== me.team);
+    const theirsOpen = board.locations.filter((loc) => state.control[loc] !== foeTeam);
+    score +=
+      weights.approach * (closeness(state, me.team, mineOpen) - closeness(state, foeTeam, theirsOpen));
   }
 
   if ((weights.proximityWalk ?? 0) !== 0) {
@@ -597,6 +632,8 @@ export function featureVector(state: GameState, seat: Seat): number[] {
 
   const open = board.locations.filter((loc) => state.control[loc] !== me.team);
   const proximity = closeness(state, me.team, open) - closeness(state, foeTeam, open);
+  const theirsOpen = board.locations.filter((loc) => state.control[loc] !== foeTeam);
+  const approach = closeness(state, me.team, open) - closeness(state, foeTeam, theirsOpen);
   const holder = state.players.find((p) => p.hasInitiative);
   const acting = state.players[actingSeat(state)];
 
@@ -617,6 +654,7 @@ export function featureVector(state: GameState, seat: Seat): number[] {
     coins === 0 ? 0 : worth / coins,
     -(frozenFraction(state, me.team) - frozenFraction(state, foeTeam)),
     tradeBalance(state, me.team),
+    approach,
   ];
 }
 
@@ -641,6 +679,7 @@ export const FEATURES: readonly (keyof EvalWeights)[] = [
   'worth',
   'circulation',
   'traded',
+  'approach',
 ];
 
 /**
@@ -677,6 +716,7 @@ export function weightsFromFit(fit: readonly number[], version: string): EvalWei
     worth: at('worth'),
     circulation: at('circulation'),
     traded: at('traded'),
+    approach: at('approach'),
   };
 }
 
