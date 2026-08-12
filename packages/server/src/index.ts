@@ -74,7 +74,7 @@ function sendToUser(userId: string, msg: ServerMessage): void {
 function pushLobby(lobby: Lobby | undefined | null): void {
   if (!lobby) return;
   const state = rooms.state(lobby);
-  for (const member of rooms.humanMembers(lobby)) {
+  for (const member of rooms.seatedMembers(lobby)) {
     sendToUser(member.userId, { t: 'lobby.state', lobby: state });
     const view = rooms.viewFor(lobby, member.userId);
     if (view) sendToUser(member.userId, { t: 'game.view', view });

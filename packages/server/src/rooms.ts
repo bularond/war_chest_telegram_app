@@ -189,6 +189,17 @@ export class Rooms {
     return lobby.members.filter((m) => !isBotUserId(m.userId));
   }
 
+  /**
+   * Who should be told what is happening at this table. A player who left a
+   * game in progress keeps their seat and can come back, but until they do
+   * they are not sitting here: pushing the table at them would drag them back
+   * onto the game screen they just walked out of — including later, when the
+   * computer finishes the move it still owed.
+   */
+  seatedMembers(lobby: Lobby): Member[] {
+    return this.humanMembers(lobby).filter((m) => this.byUser.get(m.userId) === lobby.code);
+  }
+
   join(code: string, member: Member, password?: string): Lobby {
     const lobby = this.get(code);
     if (!lobby) throw new RoomError('not_found', 'Стол с таким кодом не найден');
