@@ -13,7 +13,10 @@ services:
     container_name: war-chest
     restart: unless-stopped
     ports:
-      - '${PORT:-8787}:8787'
+      # Loopback by default: behind nginx the container has no business being
+      # reachable from outside, and on a VPS a published port bypasses TLS.
+      # BIND=0.0.0.0 to open it up, e.g. to reach a laptop from a phone.
+      - '${BIND:-127.0.0.1}:${PORT:-8787}:8787'
     environment:
       # Fixed inside the container; the host side is the port mapping above.
       PORT: 8787

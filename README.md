@@ -72,6 +72,43 @@ npm run deploy
 Дальше: `docker compose logs -f`, `docker compose down`, а
 `docker compose down -v` снесёт и базу.
 
+### На VPS
+
+Контейнер слушает только `127.0.0.1` — наружу смотрит nginx, он же держит TLS,
+без которого Telegram Mini App не откроет. Готовый конфиг для
+`warchestapp.bularond.ru` лежит в
+[`deploy/nginx/`](deploy/nginx/warchestapp.bularond.ru.conf); в нём важны две
+вещи, которые легко забыть: проброс заголовков `Upgrade` для `/ws` и
+`proxy_read_timeout` — иначе игрока, задумавшегося над ходом дольше минуты,
+выбрасывает со стола. И никаких `X-Frame-Options`: Telegram Desktop открывает
+приложение в iframe.
+
+```bash
+# на сервере: код, ключи, запуск
+git clone <репозиторий> war_chest && cd war_chest
+cp .env.example .env && $EDITOR .env      # токен, NODE_ENV=production
+docker compose up -d --build
+
+# TLS и фронт
+sudo certbot certonly --nginx -d warchestapp.bularond.ru
+sudo cp deploy/nginx/warchestapp.bularond.ru.conf \
+        /etc/nginx/sites-available/warchestapp.bularond.ru
+sudo ln -s /etc/nginx/sites-available/warchestapp.bularond.ru /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Если на VPS меньше двух гигабайт памяти, сборка образа на нём может не влезть.
+Тогда собрать у себя и перевезти готовый образ:
+
+```bash
+docker build -t war-chest:latest . && docker save war-chest:latest | gzip \
+  | ssh vps 'gunzip | docker load'
+ssh vps 'cd war_chest && docker compose up -d'   # build: не нужен, образ уже есть
+```
+
+Последний шаг — BotFather: `/newapp`, Web App URL
+`https://warchestapp.bularond.ru`.
+
 Вручную, без Docker:
 
 ```bash
