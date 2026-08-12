@@ -140,7 +140,7 @@ if (drop <= 0.0005) {
   for (const s of notableSynergies(report.withPairs)) {
     const [one, two] = s.units;
     console.log(
-      `  ${`${UNITS[one].name} + ${UNITS[two].name}`.padEnd(34)}${s.value >= 0 ? '+' : ''}${s.value.toFixed(3)}`,
+      `  ${`${UNITS[one].name.ru} + ${UNITS[two].name.ru}`.padEnd(34)}${s.value >= 0 ? '+' : ''}${s.value.toFixed(3)}`,
     );
   }
 }
@@ -170,4 +170,4 @@ if (outPath) {
 const best = [...report.withPairs.units]
   .sort((x, y) => worthTo(report.withPairs, y, []) - worthTo(report.withPairs, x, []))
   .slice(0, 5);
-console.log(`\n  first pick, holding nothing: ${best.map((u) => UNITS[u].name).join(', ')}\n`);
+console.log(`\n  first pick, holding nothing: ${best.map((u) => UNITS[u].name.ru).join(', ')}\n`);

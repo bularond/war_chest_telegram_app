@@ -54,17 +54,63 @@ const MEASURED_VALUE: Readonly<Partial<Record<UnitId, number>>> = {
 };
 
 /**
- * The same count over all 28 units, played with the three expansions out: 660
- * games, about 190 appearances each, so ±7 points on any one of them — noisier
- * than the base table and covering four times the units.
+ * The same count over all 28 units, played with the three expansions out: 3600
+ * games under `search@7`, about 1030 appearances each, ±3.0 points.
  *
  * It is a different game, not an extension of the same one. A pool of eight
- * drawn from 28 asks a unit to beat different company than a pool drawn from 16,
- * and the numbers say so: the Crossbowman is 49.2% in the base game and 44.5%
- * here, the Cavalry 57.3% and 51.8%. What holds across both is the Light Cavalry
- * on top and the Footman at the bottom.
+ * drawn from 28 asks a unit to beat different company than a pool drawn from 16.
+ * What holds across both is the Light Cavalry on top and the Footman at the
+ * bottom.
+ *
+ * **This replaced a 660-game table, and the middle of it moved.** Rank
+ * correlation between the two is 0.870 — the ends held, as they did when the
+ * base table was re-counted at twice the size — but the Siege Tower rose 7.9
+ * points from thirteenth to fifth, the Pikeman fell 6.7 from fifth to eleventh,
+ * and the Swordsman rose 6.5 from twenty-sixth to fifteenth. None of that
+ * contradicts the old numbers: at ±7 a unit's place in the middle of the table
+ * was never measured at all, and a rule that drafts by it was reading noise for
+ * eleven of the twenty-eight.
+ *
+ * The Pikeman is the one that got noticed from outside. A player watching the
+ * bot said it kept drafting Pikemen, stacking them and then not playing them —
+ * and the drafting half of that was the old table putting a middling unit fifth.
  */
 const MEASURED_VALUE_ALL: Readonly<Partial<Record<UnitId, number>>> = {
+  lightCavalry: 0.651,
+  skirmisher: 0.622,
+  scout: 0.588,
+  mercenary: 0.575,
+  siegeTower: 0.573,
+  warriorPriest: 0.542,
+  bannerman: 0.534,
+  herald: 0.53,
+  earl: 0.525,
+  cavalry: 0.52,
+  pikeman: 0.515,
+  infiltrator: 0.512,
+  royalGuard: 0.505,
+  knight: 0.489,
+  swordsman: 0.488,
+  archer: 0.486,
+  warWagon: 0.486,
+  lancer: 0.484,
+  assassin: 0.462,
+  bishop: 0.46,
+  berserker: 0.457,
+  ensign: 0.446,
+  sapper: 0.436,
+  marshal: 0.434,
+  crossbowman: 0.43,
+  saboteur: 0.425,
+  trebuchet: 0.423,
+  footman: 0.416,
+};
+
+/**
+ * The 660-game table this replaced, kept so the replacement can be checked by
+ * reversal rather than believed.
+ */
+const MEASURED_VALUE_ALL_660: Readonly<Partial<Record<UnitId, number>>> = {
   lightCavalry: 0.7,
   skirmisher: 0.606,
   bannerman: 0.594,
@@ -128,12 +174,11 @@ function scaleOf(table: Readonly<Partial<Record<UnitId, number>>>): number {
  * Monday and another on Tuesday because a Siege box was opened, and every
  * weight fitted against it would be fitted against a moving number.
  *
- * So it takes the better-measured value. The base table rests on 2220 games and
- * carries ±2.9; the 28-unit table on 660, about 190 appearances each, ±7. And
- * the choice costs less than it looks: the largest disagreement between them on
- * any shared unit — the Cavalry, 57.3% against 51.8% — is inside the wider
- * table's own error bar. Preferring the tighter measurement is not a claim that
- * the pool does not matter; it is a refusal to prefer a noisier number.
+ * So it takes the base-game value where there is one. Both tables are now
+ * measured to about the same precision — 2220 games at ±2.9 against 3600 at
+ * ±3.0 — so this is no longer a choice between a tight number and a loose one;
+ * it is a choice of which game the evaluation should believe, and the base game
+ * is the one whose sixteen units appear in every match the arena plays.
  */
 const MERGED: Readonly<Partial<Record<UnitId, number>>> = Object.fromEntries(
   Object.values(UNITS).map((spec) => [
@@ -156,4 +201,4 @@ export function unitWorth(unit: UnitId): number {
   return UNIT_WORTH[unit] ?? 0;
 }
 
-export { MEASURED_VALUE, MEASURED_VALUE_ALL };
+export { MEASURED_VALUE, MEASURED_VALUE_ALL, MEASURED_VALUE_ALL_660 };

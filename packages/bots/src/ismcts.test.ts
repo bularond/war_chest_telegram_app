@@ -333,6 +333,10 @@ describe('the search, move for move', () => {
       exploration: 0.9,
       rolloutDepth: 12,
       firstPlay: Infinity,
+      // Pinned like the rest: the master was recorded before the rollout took
+      // any noise, and a tuned constant must never be confused with a broken
+      // descent. The knob's own effect is checked in its own test above.
+      rolloutNoise: 0,
     };
     for (const seed of [3, 7, 11]) {
       const state = game(seed);

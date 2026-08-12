@@ -1,5 +1,5 @@
 {
-  "note": "Two new evaluation features and the unfinished rollout questions, on twelve cores.\n\nThe features come from one observation: the evaluation counts coins, and a coin is not a coin. The first attempt at saying so — `scarcity` — reads `5 − coins in the box`, and the box count is known to carry no information about strength (four-coin units win 49.8%, five-coin 50.0%). Its zero was guaranteed by construction. The number that does carry information has existed since the draft was measured, over 2220 games of the search playing itself, and has never been read by the evaluation.\n\nBoth were put through `scripts/feature-drift.mjs` before being queued, and the script grew a column for it. `worth` reads in 91% of positions with no drift by descent depth. `traded` varies more inside one position (0.265) than between games (0.160), which is what settles the objection that a per-unit number might be a constant the whole tree shares. A third feature, `circulation`, was written and is *not* here: it moves 0.021 inside a position, which is the threshold, and a match on a feature that barely moves measures nothing. That is the `deadWeight` mistake and it is not being repeated.\n\nThe rollout questions are the ones the five-core run did not finish. `noise-015` had reached 272 games at 51.8% with the log-likelihood ratio flat at −0.15 — no verdict, and it restarts here on its own block of seeds.",
+  "note": "Two new evaluation features and the unfinished rollout questions, on twelve cores.\n\nThe features come from one observation: the evaluation counts coins, and a coin is not a coin. The first attempt at saying so — `scarcity` — reads `5 − coins in the box`, and the box count is known to carry no information about strength (four-coin units win 49.8%, five-coin 50.0%). Its zero was guaranteed by construction. The number that does carry information has existed since the draft was measured, over 2220 games of the search playing itself, and has never been read by the evaluation.\n\nBoth were put through `scripts/feature-drift.mjs` before being queued, and the script grew a column for it. `worth` reads in 91% of positions with no drift by descent depth. `traded` varies more inside one position (0.265) than between games (0.160), which is what settles the objection that a per-unit number might be a constant the whole tree shares. A third feature, `circulation`, was written and is *not* here: it moves 0.021 inside a position, which is the threshold, and a match on a feature that barely moves measures nothing. That is the `deadWeight` mistake and it is not being repeated.\n\nThe rollout questions are the ones the five-core run did not finish. `noise-015` had reached 272 games at 51.8% with the log-likelihood ratio flat at −0.15 — no verdict, and it restarts here on its own block of seeds.\n\nПОСЛЕ ФАКТА. `bolster-neg020` снят. Гашение премии за усиление стоило 57 Elo (198 партий, 41,9%), то есть перекос по знаменателям делал полезную работу: он подменял собой отсутствующий признак живучести стопки, а веса подбирались вместе с ним. Идти вдвое дальше по направлению, которое уже провалилось, — та же ошибка, из-за которой был снят `worth-060`. Ось закрыта с обеих сторон: +0,2 дало 48,0% на 600 партиях ещё в августе, −0,1 дало 41,9% сейчас, ноль остаётся лучшей известной точкой. Настоящая починка — общий знаменатель для `material` и `reserve` с перемером обоих весов, и это отдельный заход, а не ручка.",
   "proposals": [
     {
       "id": "worth-030",
@@ -34,10 +34,26 @@
       "draftMode": "draft"
     },
     {
+      "id": "noise-reverse",
+      "note": "The confirmation for `noise-015`, written as a reversal because a repeat of an accepted setting resolves to 'nothing to change' — a REJECT with no games played, which reads in the report exactly like a verdict. This turns the noise back off on a fresh block of seeds. A REJECT here says what the ACCEPT said, from the other side; an ACCEPT here would say the first result was the deal and not the knob. Queued ahead of the two remaining low-touch probes: confirming +39 Elo is worth more than a third look at a feature that has failed twice.",
+      "knobs": {
+        "rolloutNoise": 0
+      },
+      "draftMode": "draft"
+    },
+    {
       "id": "worth-010",
       "note": "The second point, and it moved down rather than up. The plan said 0.60 regardless of the first verdict, on the rule that one point is not a curve — but that rule was bought on first-play-urgency, where the sign of the working range was unknown. Here it is not: the evaluation is baseline at 0 and scored 46.5% at 0.30, so 0.60 extrapolates further along the direction that already failed and would buy nothing but twenty-five minutes. What is still open is whether a light touch helps, which is what this asks. If it also rejects, the feature is closed on two points either side of the failure rather than on one.",
       "set": {
         "worth": 0.1
+      },
+      "draftMode": "draft"
+    },
+    {
+      "id": "bolster-neg010",
+      "note": "A negative weight on bolstering, at the value that cancels a bias rather than at a value somebody liked. Measured on 40 games and 8909 legal actions: a bolster raises the evaluation by 0.0347 against 0.0061 for an average move, before the search reads a single rollout. That gap is arithmetic, not judgement — `material` divides by the coins on the board (11.3 on average) and `reserve` by every coin either side holds anywhere (24.9), so moving one coin from the second pile to the first pays a premium of about a fifth of a control marker for nothing. A sweep says −0.10 closes the gap exactly: 0.0059 against 0.0058.\n\nThe knob is not new and its zero is not a verdict on this. It was tried once, at +0.2, and scored 48.0% over 600 games — the same side of the axis as the bias it was supposed to be measuring. Nobody has ever run the half that the arithmetic points at.\n\nQueued because a player noticed the behaviour before any instrument did: the bot drafts Pikemen, stacks them three deep and then leaves them. All three parts have since been measured — the draft ranks the Pikeman fifth of 28, the evaluation pays for the stacking, and a Pikeman has four coins, so three on the board leave one to move them with.",
+      "set": {
+        "bolster": -0.1
       },
       "draftMode": "draft"
     },

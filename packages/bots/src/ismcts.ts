@@ -139,7 +139,15 @@ export const DEFAULT_SEARCH: SearchSettings = {
   levelLeaves: false,
   weights: BASE_WEIGHTS,
   rolloutBot: HeuristicBot,
-  rolloutNoise: 0,
+  // 642 games, 55.6%, +39 Elo — and confirmed from the other side on fresh
+  // seeds, where turning it back off scored 35.2% over 128 games.
+  //
+  // The size of it is the point. Fifteen percent of plies played at random pays;
+  // replacing the priority lists wholesale — the `quick` heuristic, which picks
+  // the kind of move and then draws inside it — costs 202 Elo over 42 games. So
+  // the rollout cannot be traded for iterations at all, and yet a little
+  // decorrelation is worth having. The optimum is narrow and sits near zero.
+  rolloutNoise: 0.15,
   draftBot: HeuristicBot,
   checkEvery: 32,
 };

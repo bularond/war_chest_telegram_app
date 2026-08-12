@@ -1,0 +1,12 @@
+{
+  "note": "Did re-measuring the draft table change anything, or only change the numbers?\n\nThe 28-unit table the bot drafts by rested on 660 games — about 190 appearances per unit, ±7 points — which is enough to place the ends and not enough to place the middle. It has been re-counted at 3600 games under `search@7`, ±3.0. The ends held (rank correlation 0.870) and the middle moved a long way: the Siege Tower from thirteenth to fifth, the Pikeman from fifth to eleventh, the Swordsman from twenty-sixth to fifteenth.\n\nThis is not a hypothesis being tested — it is one estimate of the same quantity replacing a worse one, which needs no permission. What it needs is a check that it did not break anything, and the check has to be written as a reversal: the new table is already the default, so proposing it again would resolve to 'nothing to change' and report a REJECT with no games played.\n\nAn inconclusive result is the likely one and is not a failure. The two tables agree about most of the pool, so the two bots draft the same much of the time, and an SPRT has little to bite on. A REJECT would say the new table is at least not worse; an ACCEPT for the old one would say the re-count made things worse and would need explaining.",
+  "proposals": [
+    {
+      "id": "table-660-reverse",
+      "note": "Back to the 660-game table, in an expansion draft, on a fresh block of seeds.",
+      "knobs": { "draftBy": "measured-all-660" },
+      "draftMode": "draft",
+      "sets": ["nobility", "siege", "nightfall"]
+    }
+  ]
+}

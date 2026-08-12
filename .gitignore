@@ -19,3 +19,4 @@ weights/lab.heartbeat.json
 weights/*.journal.json
 weights/lab.log*
 weights/lab/
+weights/*.log

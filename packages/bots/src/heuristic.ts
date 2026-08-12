@@ -42,7 +42,7 @@ import {
   type Steps,
 } from './board-sense.js';
 import { pickLegal, type Bot, type BotContext } from './types.js';
-import { MEASURED_VALUE, MEASURED_VALUE_ALL } from './unit-worth.js';
+import { MEASURED_VALUE, MEASURED_VALUE_ALL, MEASURED_VALUE_ALL_660 } from './unit-worth.js';
 
 export interface HeuristicWeights {
   /** The chart's order: hit something first, take a location only if it wins. */
@@ -68,7 +68,7 @@ export interface HeuristicWeights {
    * deals a draft by default while every experiment so far has been played on
    * dealt units.
    */
-  readonly draftBy: 'coins' | 'scarcity' | 'random' | 'measured' | 'measured-all';
+  readonly draftBy: 'coins' | 'scarcity' | 'random' | 'measured' | 'measured-all' | 'measured-all-660';
 }
 
 export const DEFAULT_WEIGHTS: HeuristicWeights = {
@@ -460,8 +460,15 @@ function maneuverRecency(view: GameView): Map<UnitId, number> {
 function draftPick(
   legal: readonly GameAction[],
   rng: RngState,
-  by: 'coins' | 'scarcity' | 'random' | 'measured' | 'measured-all',
+  by: 'coins' | 'scarcity' | 'random' | 'measured' | 'measured-all' | 'measured-all-660',
 ): GameAction {
+  // The table the 3600-game count replaced. Here only so that replacing it can
+  // be checked by playing the old one against the new, which is the only way a
+  // re-measurement gets to claim it changed anything.
+  if (by === 'measured-all-660') {
+    const pool = largest(legal, (a) => ('unit' in a ? (MEASURED_VALUE_ALL_660[a.unit as UnitId] ?? 0.5) : 0));
+    return pool[nextInt(rng, pool.length)] as GameAction;
+  }
   if (by === 'random') return legal[nextInt(rng, legal.length)] as GameAction;
   if (by === 'measured-all') {
     const pool = largest(legal, (a) => ('unit' in a ? (MEASURED_VALUE_ALL[a.unit as UnitId] ?? 0.5) : 0));

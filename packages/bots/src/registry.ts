@@ -47,6 +47,29 @@ export const BOTS: Readonly<Record<string, Bot>> = {
  * Bump it whenever a bot's behaviour changes; stage 8 replaces it with the
  * version of the evaluation weights file.
  *
+ * `@8` drafts by a table re-counted at 3600 games instead of 660. Not a new
+ * idea and not an experiment — one estimate of the same quantity replacing a
+ * worse one, ±3.0 points against ±7. The ends of the table held (rank
+ * correlation 0.870) and the middle moved a long way: the Siege Tower from
+ * thirteenth to fifth, the Pikeman from fifth to eleventh, the Swordsman from
+ * twenty-sixth to fifteenth. Playing the old table against the new scored 47.4%
+ * over 346 games [42.1 … 52.7] — nothing broke, and nothing is claimed beyond
+ * that; two tables that agree about most of the pool draft the same much of the
+ * time, so there was never much for a match to bite on.
+ *
+ * It was noticed from outside the instruments. A player watching the bot said it
+ * kept drafting Pikemen and then not playing them, and the drafting half of that
+ * turned out to be a middling unit sitting fifth on 190 appearances.
+ *
+ * `@7` puts noise in the rollout: fifteen percent of its plies are played at
+ * random rather than by the heuristic. 642 games, 55.6%, +39 Elo, and turning it
+ * back off on fresh seeds scored 35.2% over 128. The rollout was the last large
+ * part of the search nobody had varied — only its depth had been tuned — and it
+ * was reached by instrument rather than by guess: the root holds 19 moves and
+ * gets 78 iterations each, so there was never a width problem to solve, while
+ * the depth sweep's sharp peak said the leaf is very sensitive to how those
+ * plies are played.
+ *
  * `@6` drafts by a table that covers all 28 units rather than the 16 of the base
  * box: +53 Elo in games with the expansions out, where twelve units used to be
  * treated as merely average.
@@ -73,7 +96,7 @@ export const BOTS: Readonly<Record<string, Bot>> = {
  * test. But the levels are budgeted in milliseconds, so a search 2,5–3× faster
  * is a different opponent across the table, and the log has to say which one.
  */
-export const BOT_BUILD = 'search@6';
+export const BOT_BUILD = 'search@8';
 
 export function botNamed(name: string): Bot | undefined {
   return BOTS[name];

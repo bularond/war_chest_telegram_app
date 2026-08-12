@@ -86,6 +86,20 @@ export interface EvalWeights {
    * meant nothing. This is the graded form: every position has an answer to
    * "what share of my board can I still drive". Making `deadWeight` graded is
    * exactly the operation that turned it into `idleHand` and +43 Elo.
+   *
+   * **Closed by instrument, never played.** It moves 0.016 inside one position
+   * against 0.014 between games — that is, whether a stack is frozen is settled
+   * at the root and barely changes with the move chosen. A search orders the
+   * leaves of one tree, so a feature that is constant across that tree shifts
+   * every leaf together and changes nothing, whatever its weight. And the reason
+   * is not a bad definition this time, it is the game: circulation moves when
+   * coins are spent or destroyed, which takes many plies, so being stuck is a
+   * strategic fact and the twelve-ply horizon is a tactical instrument.
+   *
+   * The census behind it stands and is worth keeping: of 18 161 stacks, 4.6% had
+   * no coin of their own left anywhere and 8.7% had one, and at least one frozen
+   * stack stood on the board in 15.1% of positions. The situation is real. It is
+   * just not something an evaluation at this horizon can steer by.
    */
   readonly circulation: number;
   /**
