@@ -287,7 +287,16 @@ function Draft({ view }: { view: GameView }) {
           widest word unless told otherwise, and one long unit name was enough
           to push the whole screen sideways.
         */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
+        <div
+          style={{
+            display: 'grid',
+            // Three across while banning: "Вычеркнуть" is twice the word
+            // "Взять" and does not fit a quarter of a phone. The two phases
+            // never share a screen, so the cards changing size costs nothing.
+            gridTemplateColumns: `repeat(${banning ? 3 : 4}, minmax(0, 1fr))`,
+            gap: 10,
+          }}
+        >
           {view.draftPool.map((unit) => {
             const action = view.legal.find(
               (a) => (a.type === 'draft' || a.type === 'ban') && a.unit === unit,
@@ -352,9 +361,12 @@ function Draft({ view }: { view: GameView }) {
                   className="btn btn--primary btn--block"
                   disabled={!action}
                   style={{
-                    padding: '6px 10px',
+                    padding: '6px 6px',
                     fontSize: 12,
                     marginTop: 2,
+                    // A word with no spaces in it spills out of its button
+                    // rather than wrapping, and takes the card with it.
+                    overflowWrap: 'anywhere',
                     ...(action ? {} : { opacity: 0.3 }),
                   }}
                   onClick={

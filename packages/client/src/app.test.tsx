@@ -186,6 +186,36 @@ describe('playing the computer', () => {
 });
 
 describe('draft', () => {
+  it('keeps the strike button in place through the whole ban phase', () => {
+    render(<App />);
+    const game = createGame({
+      id: 'ban-ui',
+      size: 2,
+      seed: 5,
+      draftMode: 'ban',
+      seats: [
+        { userId: 'me', displayName: 'Артём К' },
+        { userId: 'foe', displayName: 'Марина С' },
+      ],
+    });
+    pushView(game, 0);
+
+    const strikes = () => screen.queryAllByText('Вычеркнуть').map((el) => el.closest('button')!);
+    const pool = () => document.querySelectorAll('.screen .scroll > div:first-child > div').length;
+
+    // Your ban: every card in the pool offers the button.
+    expect(strikes()).toHaveLength(game.draftPool.length);
+    expect(strikes().some((b) => b.disabled)).toBe(false);
+
+    // Theirs: the buttons stay, disabled, and the pool keeps its shape.
+    const before = pool();
+    applyAction(game, 0, legalActions(game, 0).find((a) => a.type === 'ban')!);
+    pushView(game, 0);
+    expect(strikes()).toHaveLength(game.draftPool.length);
+    expect(strikes().every((b) => b.disabled)).toBe(true);
+    expect(pool()).toBe(before - 1); // the struck card left the pool, as it must
+  });
+
   it('keeps the take button in place while the other side is choosing', () => {
     render(<App />);
     const game = newGame();
