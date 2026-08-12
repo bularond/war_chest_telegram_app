@@ -1,0 +1,15 @@
+{
+  "version": "fitted-search-sharp",
+  "markers": 1,
+  "material": 0.7,
+  "scarcity": 0.8477,
+  "reach": -0.2339,
+  "reserve": 0.5057,
+  "bolster": -0.0642,
+  "proximity": 0.3583,
+  "initiative": -0.0104,
+  "tempo": 0.1168,
+  "hand": 0.0455,
+  "threat": 0.2229,
+  "deadWeight": 0.0845
+}

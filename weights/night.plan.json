@@ -1,0 +1,414 @@
+{
+  "note": "Read before every experiment: proposals can be appended while the lab runs.",
+  "proposals": [
+    {
+      "id": "fpu-neg08-again",
+      "note": "The same setting on a fresh block of seeds. A verdict this decisive on 48 games deserves a second sample before it becomes a conclusion — the night already produced one +18 Elo that evaporated on re-test.",
+      "knobs": {
+        "firstPlay": -0.8
+      }
+    },
+    {
+      "id": "fpu-neg08",
+      "note": "First play urgency, third formulation and the first one with a working range. An untried move is priced in the same currency as the tried ones: firstPlay plus the bonus a once-visited child gets. The bonus is about 1.14 at 600 iterations, so the threshold has to be negative to bite at all — instrumented, -0.4 does nothing, -0.8 concentrates the search from 45 visits on the best move to 112-245, -1.2 collapses it onto one move. Three formulations, three instrument runs, one match.",
+      "knobs": {
+        "firstPlay": -0.8
+      }
+    },
+    {
+      "id": "fpu-neg06",
+      "note": "The gentler end of the same window.",
+      "knobs": {
+        "firstPlay": -0.6
+      }
+    },
+    {
+      "id": "fpu-005b",
+      "note": "First play urgency, after the formula was fixed. The first version compared the threshold against the UCB — bonus included — so widening stopped after the first move tried: 600 of 600 iterations to one move out of 28, instrumented. It now compares against the best value actually observed, which is what the technique means. The useful range moved with the fix: 0.3 and 0.6 now barely prune, so this asks 0.05.",
+      "knobs": {
+        "firstPlay": 0.05
+      }
+    },
+    {
+      "id": "level-leaves",
+      "note": "Roll out until the root's side is to move again. Without it, whose turn it is at a leaf depends on how long the tree descent was — measured 76% one way at zero descent, 49% at four. Every asymmetric feature then reads branch depth instead of position. This is the fix on its own, before any feature is asked to rely on it.",
+      "knobs": {
+        "levelLeaves": true
+      }
+    },
+    {
+      "id": "tempo-010c",
+      "note": "Tempo again, this time on leaves that are comparable. Its first verdict — minus 51 Elo — was measured on leaves where the feature was a depth counter, so it said nothing about tempo.",
+      "set": {
+        "tempo": 0.1
+      },
+      "knobs": {
+        "levelLeaves": true
+      }
+    },
+    {
+      "id": "idle-006",
+      "note": "The loosened dead-weight idea at the value the fit proposes (0.056). The strict version fired in one position out of a hundred, so its null said nothing; this one is silent in 59% and has four times the spread. Weight chosen by the fit, not by me — the same route that found reserve.",
+      "set": {
+        "idleHand": 0.06
+      }
+    },
+    {
+      "id": "idle-015",
+      "note": "The same, a stronger dose. Its spread is large enough that a bigger weight is not obviously wrong.",
+      "set": {
+        "idleHand": 0.15
+      }
+    },
+    {
+      "id": "threat-on-short-rollout",
+      "note": "A prediction, not a hope. If the new features add nothing because the rollout already discovers what they describe, then shortening the rollout should make them worth something. Rollout depth 6 alone scored 39.1%; this is depth 6 with threat at 0.2. Much above 39% means the features were duplicating the rollout's work all along, which would explain every null this project has collected. Around 39% means they are simply not worth anything.",
+      "set": {
+        "threat": 0.2
+      },
+      "knobs": {
+        "rolloutDepth": 6
+      }
+    },
+    {
+      "id": "sanity-aa",
+      "note": "A/A: a knob that cannot matter. Must come back near 50% and REJECT, or the harness is lying.",
+      "knobs": {
+        "checkEvery": 31
+      }
+    },
+    {
+      "id": "explore-045",
+      "note": "8.5 UCT constant: half. 0.9 was chosen by eye, never measured.",
+      "knobs": {
+        "exploration": 0.45
+      }
+    },
+    {
+      "id": "explore-180",
+      "note": "8.5 UCT constant: double.",
+      "knobs": {
+        "exploration": 1.8
+      }
+    },
+    {
+      "id": "explore-030",
+      "note": "8.5 UCT constant, finer: less exploration still.",
+      "knobs": {
+        "exploration": 0.3
+      }
+    },
+    {
+      "id": "explore-020",
+      "note": "0.45 beat 0.9, so the direction is down; keep walking while it pays.",
+      "knobs": {
+        "exploration": 0.2
+      }
+    },
+    {
+      "id": "explore-180b",
+      "note": "Re-run: the first attempt died on the node-seat bug, not on the chess.",
+      "knobs": {
+        "exploration": 1.8
+      }
+    },
+    {
+      "id": "explore-030b",
+      "note": "Re-run after the fix.",
+      "knobs": {
+        "exploration": 0.3
+      }
+    },
+    {
+      "id": "rollout-24",
+      "note": "8.5 rollout depth: 24 plies. Deeper rollouts, fewer of them.",
+      "knobs": {
+        "rolloutDepth": 24
+      }
+    },
+    {
+      "id": "rollout-24b",
+      "note": "Re-run after the fix.",
+      "knobs": {
+        "rolloutDepth": 24
+      }
+    },
+    {
+      "id": "rollout-06",
+      "note": "8.5 rollout depth: 6 plies. Leans harder on the evaluation.",
+      "knobs": {
+        "rolloutDepth": 6
+      }
+    },
+    {
+      "id": "rollout-00",
+      "note": "No rollout at all: score the node the search reached and stop. The evaluation has been tuned for months and the rollout costs most of an iteration — if the two are close, dropping it buys a large multiple of the iterations. This is what a modern search does instead of rolling out.",
+      "knobs": {
+        "rolloutDepth": 0
+      }
+    },
+    {
+      "id": "fpu-030",
+      "note": "First play urgency: stop the search from having to give every one of 30-80 moves its first look before any gets a second. At a medium budget that is where most of the iterations go. 0.3 is roughly the middle of the scores moves actually show.",
+      "knobs": {
+        "firstPlay": 0.3
+      }
+    },
+    {
+      "id": "fitted",
+      "note": "Every weight at once, fitted by logistic regression to who won 4961 games of heuristic self-play (log loss 0.693 to 0.483). The label is who wins under heuristic play, which is a proxy — this match is what says whether the proxy held.",
+      "set": {
+        "material": 0.3485,
+        "scarcity": 1.962984218077475,
+        "reach": 0.15581061692969872,
+        "reserve": 0.4772,
+        "bolster": -0.0423,
+        "proximity": 0.1298,
+        "initiative": 0.0256,
+        "tempo": 0.0702,
+        "hand": -0.04,
+        "threat": 0.0778,
+        "deadWeight": 0.0819
+      }
+    },
+    {
+      "id": "fitted-search",
+      "note": "The same fit, but on 400 games played by the search itself rather than by the heuristic — the proxy the bot actually is. It disagrees with the heuristic fit where it matters: material and proximity up, scarcity and reserve down.",
+      "set": {
+        "material": 0.4896,
+        "scarcity": 0.5929330065359478,
+        "reach": -0.16360294117647062,
+        "reserve": 0.3537,
+        "bolster": -0.0449,
+        "proximity": 0.2506,
+        "initiative": -0.0073,
+        "tempo": 0.0817,
+        "hand": 0.0318,
+        "threat": 0.1559,
+        "deadWeight": 0.0591
+      }
+    },
+    {
+      "id": "fitted-sharp",
+      "note": "The search fit's shape at the baseline's sharpness. A regression maximises how well the vector predicts the winner, and markers predict it best — so the fit makes everything else small next to markers, which reads well and steers badly. This scales the non-marker weights so material lands where the baseline has it, keeping the fit's proportions among them.",
+      "set": {
+        "material": 0.7,
+        "scarcity": 0.8477,
+        "reach": -0.2339,
+        "reserve": 0.5057,
+        "bolster": -0.0642,
+        "proximity": 0.3583,
+        "initiative": -0.0104,
+        "tempo": 0.1168,
+        "hand": 0.0455,
+        "threat": 0.2229,
+        "deadWeight": 0.0845
+      }
+    },
+    {
+      "id": "reserve-048",
+      "note": "The regression's steadiest number after markers: reserve about 0.48 on both the base game and all three expansions, against 0.15 today. One weight, so the verdict says something on its own.",
+      "set": {
+        "reserve": 0.48
+      }
+    },
+    {
+      "id": "material-040",
+      "note": "The other half of the same reading: material 0.35 to 0.45 fitted, 0.7 today. The descent doubled it once and could not double it again — this asks whether it went too far.",
+      "set": {
+        "material": 0.4
+      }
+    },
+    {
+      "id": "scarcity-060",
+      "note": "Scarcity at what the search-play fit says (0.59 relative to material), not what the heuristic-play fit says (1.96). Both agree on the sign; they disagree on the size by a factor of three, and the search is what plays.",
+      "set": {
+        "scarcity": 0.6
+      }
+    },
+    {
+      "id": "scarcity-020",
+      "note": "The value-target fit's number for scarcity (0.18 relative to material), an order below what the outcome fits claimed. If 0.6 loses and this holds, the feature is real but small — which is exactly what the fit on search values said.",
+      "set": {
+        "scarcity": 0.2
+      }
+    },
+    {
+      "id": "reserve-070",
+      "note": "Further in the direction that just paid. Every fit put reserve at 0.49 or below, so this is past all of them — but the fits also understated how far material should go, and a step that large deserves a probe beyond it rather than a stop at the first number that worked.",
+      "set": {
+        "reserve": 0.7
+      }
+    },
+    {
+      "id": "fitted-value-deep",
+      "note": "Fitted to the search's own valuations, with the search looking two and a half times deeper (500 iterations, 200 games, squared error 0.170 to 0.066). The deeper target moved it onto the answer the match had just proved: reserve 0.52 against the 0.48 SPRT accepted, where the shallower fit had said 0.21. Material 0.66 and proximity 0.32 land on the hand-tuned numbers too. What it adds beyond them is small and consistent: scarcity 0.20, tempo 0.12, dead weight 0.12, threat 0.11.",
+      "set": {
+        "material": 0.6558,
+        "scarcity": 0.2012808783165599,
+        "reach": -0.11375419335163157,
+        "reserve": 0.516,
+        "bolster": -0.0451,
+        "proximity": 0.315,
+        "proximityWalk": 0,
+        "initiative": -0.0102,
+        "tempo": 0.1228,
+        "hand": -0.0236,
+        "threat": 0.1102,
+        "deadWeight": 0.1213
+      }
+    },
+    {
+      "id": "proximity-walk",
+      "note": "Closeness measured on foot instead of as the crow flies: same weight, the other definition. The straight-line version was a compromise made when a sweep per evaluation was too expensive; the sweep now costs about a fortieth of an iteration, so the compromise is worth revisiting.",
+      "set": {
+        "proximity": 0,
+        "proximityWalk": 0.4
+      }
+    },
+    {
+      "id": "explore-090b",
+      "note": "The old constant, re-run against the accepted one. 0.45 beat 0.9 on the build that ran three times slower, and a search that does three times the iterations does not have to want the same amount of exploring. A REJECT here confirms the accept; an ACCEPT means the first answer expired.",
+      "knobs": {
+        "exploration": 0.9
+      }
+    },
+    {
+      "id": "confirm-1",
+      "note": "How much the night is worth so far: the baseline against eval@3 on deals neither was chosen on. Changes nothing whatever it says.",
+      "against": "root",
+      "maxGames": 1200
+    },
+    {
+      "id": "confirm-expansions",
+      "note": "Does the night's gain survive the expansions? The same two configurations as confirm-1, with all three boxes on the table — a game the tuning never saw.",
+      "against": "root",
+      "sets": [
+        "nobility",
+        "siege",
+        "nightfall"
+      ],
+      "maxGames": 1200
+    },
+    {
+      "id": "draft-scarcity",
+      "note": "The draft, measured for the first time. A lobby deals a draft in every real game, and the bot's rule there — take the unit the box prints most of — is a guess nobody has ever checked. This is the opposite bet, played in draft mode.",
+      "knobs": {
+        "draftBy": "scarcity"
+      },
+      "draftMode": "draft"
+    },
+    {
+      "id": "draft-random",
+      "note": "The control that says whether the rule is worth anything at all: if drafting at random ties with it, it is not a rule, it is a habit.",
+      "knobs": {
+        "draftBy": "random"
+      },
+      "draftMode": "draft"
+    },
+    {
+      "id": "reach-neg010",
+      "note": "Every fit that watched the search put reach *below* zero: -0.08, -0.11, -0.14. Testing +0.2 would be testing the direction the data argues against, so this tests the one it argues for.",
+      "set": {
+        "reach": -0.1
+      }
+    },
+    {
+      "id": "threat-020",
+      "note": "New feature: whose stacks are standing where they can be hit. Plain adjacent attacks only — a tactic needs a coin in hand, and the opponent's hand is a guess.",
+      "set": {
+        "threat": 0.2
+      }
+    },
+    {
+      "id": "threat-010",
+      "note": "The value fits put threat at 0.11 to 0.16, so 0.1 and 0.2 bracket it. 0.4 was a guess made before there was anything to guess from.",
+      "set": {
+        "threat": 0.1
+      }
+    },
+    {
+      "id": "threat-020-long",
+      "note": "Threat again at 0.2, asked a smaller question: is it worth at least +10 Elo rather than +30. The first run scored 52.6% over 800 games — a point estimate of +18, which the +30 hypothesis cannot resolve either way. This one can, and threat is the only new feature that has kept its sign across every fit.",
+      "set": {
+        "threat": 0.2
+      },
+      "elo1": 10,
+      "maxGames": 1600
+    },
+    {
+      "id": "deadweight-020",
+      "note": "New feature: coins in hand for units that are neither on the board nor left in the supply.",
+      "set": {
+        "deadWeight": 0.2
+      }
+    },
+    {
+      "id": "deadweight-012",
+      "note": "Same reasoning: the fits say 0.12 to 0.15, and this is the low end of it.",
+      "set": {
+        "deadWeight": 0.12
+      }
+    },
+    {
+      "id": "tempo-010",
+      "note": "New feature: being the one to move. Standard in most evaluations; never measured here.",
+      "set": {
+        "tempo": 0.1
+      }
+    },
+    {
+      "id": "rollout-18",
+      "note": "8.5 rollout depth, finer: 18 plies.",
+      "knobs": {
+        "rolloutDepth": 18
+      }
+    },
+    {
+      "id": "rollout-09",
+      "note": "8.5 rollout depth, finer: 9 plies.",
+      "knobs": {
+        "rolloutDepth": 9
+      }
+    },
+    {
+      "id": "material-105",
+      "note": "Between the descent's ×2 and ×0.5, which both failed against eval@3.",
+      "set": {
+        "material": 1.05
+      }
+    },
+    {
+      "id": "proximity-030",
+      "note": "Same, for proximity: 0.4 was reached by doubling, never refined.",
+      "set": {
+        "proximity": 0.3
+      }
+    },
+    {
+      "id": "proximity-060",
+      "note": "Same, upwards.",
+      "set": {
+        "proximity": 0.6
+      }
+    },
+    {
+      "id": "reserve-022",
+      "note": "Now that 0.48 is the baseline, this asks the other question: did it overshoot? The four fits put reserve between 0.21 and 0.49, and 0.22 is the low end of that spread.",
+      "set": {
+        "reserve": 0.22
+      }
+    },
+    {
+      "id": "confirm-reverse",
+      "note": "The confirmation run backwards, and it has to be written this way now. `against: root` takes the root's knobs from the journal, where they are empty — meaning 'whatever the defaults are' — and the defaults changed this morning when the accepted numbers went into the code. So the starting configuration is spelled out here instead: reserve back to 0.15, exploration back to 0.9. A REJECT is the good outcome; it says the same thing as confirm-1 from the other side.",
+      "set": {
+        "reserve": 0.15
+      },
+      "knobs": {
+        "exploration": 0.9
+      },
+      "maxGames": 1200
+    }
+  ]
+}

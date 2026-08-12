@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/organic-1a7d8323-9782-4e57-8223-1304ef5f6832/styles.css">
+<script src="_ds/organic-1a7d8323-9782-4e57-8223-1304ef5f6832/_ds_bundle.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700&family=Nunito+Sans:wght@400;600;700&display=swap">
+<style>
+:root {
+  --font-heading: "Rubik", system-ui, sans-serif;
+  --font-heading-weight: 700;
+  --font-body: "Nunito Sans", system-ui, sans-serif;
+}
+@keyframes wc-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes wc-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wc-pop { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
+body { margin: 0; background: var(--color-neutral-300); }
+a { color: var(--color-accent); }
+a:hover { color: var(--color-accent-700); }
+::-webkit-scrollbar { width: 0; }
+</style>
+</helmet>
+
+<div style="min-height: 100vh; display: grid; place-items: center; padding: 32px 16px; font-family: var(--font-body);">
+<sc-if value="{{ portrait }}" hint-placeholder-val="{{ true }}">
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: var(--color-bg); color: var(--color-text); border-radius: 34px; box-shadow: var(--shadow-lg);">
+
+  <div style="position: absolute; top: -120px; right: -90px; width: 280px; height: 280px; border-radius: 50%; background: var(--color-accent-200); opacity: 0.5; pointer-events: none;"></div>
+  <div style="position: absolute; bottom: -80px; left: -70px; width: 210px; height: 210px; border-radius: 50%; background: var(--color-accent-2-200); opacity: 0.5; pointer-events: none;"></div>
+
+  <!-- ГЛАВНОЕ МЕНЮ -->
+  <sc-if value="{{ isHub }}" hint-placeholder-val="{{ true }}">
+    <div style="position: relative; height: 844px; display: flex; flex-direction: column; padding: 46px 24px 28px; animation: wc-fade 260ms ease both;">
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <div style="width: 62px; height: 62px; flex: none; border-radius: 50%; background: var(--color-accent); display: grid; place-items: center; box-shadow: var(--shadow-md);">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#f5ead8" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="13" rx="3"></rect><path d="M2 12h20"></path><path d="M12 12v3"></path><path d="M6 7V6a6 6 0 0 1 12 0v1"></path></svg>
+        </div>
+        <div>
+          <div style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent-700);">Настольная</div>
+          <h1 style="font-size: 33px; margin: 2px 0 0; line-height: 1;">Сундук Войны</h1>
+        </div>
+      </div>
+
+      <p style="margin: 18px 0 0; font-size: 14px; color: var(--color-neutral-700); max-width: 280px;">Собирайте отряд, выбирайте дополнения и садитесь за стол — на двоих или вчетвером.</p>
+
+      <div style="margin-top: 26px; display: flex; flex-direction: column; gap: 10px;">
+        <button onClick="{{ goList }}" style="display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer; padding: 18px 20px; border: none; border-radius: 30px; background: var(--color-accent); color: var(--color-bg); font-family: var(--font-body); box-shadow: var(--shadow-md);" style-hover="background: var(--color-accent-600);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+          <span style="flex: 1;">
+            <span style="display: block; font-family: var(--font-heading); font-size: 19px; line-height: 1.1;">Найти игру</span>
+            <span style="display: block; font-size: 12px; opacity: 0.85; margin-top: 2px;">{{ openCountLabel }}</span>
+          </span>
+        </button>
+
+        <button onClick="{{ goCreate }}" style="display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer; padding: 18px 20px; border: 1px solid var(--color-divider); border-radius: 30px; background: var(--color-surface); color: var(--color-text); font-family: var(--font-body);" style-hover="border-color: var(--color-accent);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+          <span style="flex: 1;">
+            <span style="display: block; font-family: var(--font-heading); font-size: 19px; line-height: 1.1;">Создать лобби</span>
+            <span style="display: block; font-size: 12px; color: var(--color-neutral-700); margin-top: 2px;">Название, пароль, дополнения</span>
+          </span>
+        </button>
+
+        <button onClick="{{ goCode }}" style="display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer; padding: 18px 20px; border: 1px solid var(--color-divider); border-radius: 30px; background: transparent; color: var(--color-text); font-family: var(--font-body);" style-hover="background: var(--color-surface);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-2-700)" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="4"></rect><path d="M8 10h.01M12 10h.01M16 10h.01M8 15h8"></path></svg>
+          <span style="flex: 1;">
+            <span style="display: block; font-family: var(--font-heading); font-size: 19px; line-height: 1.1;">Войти по коду</span>
+            <span style="display: block; font-size: 12px; color: var(--color-neutral-700); margin-top: 2px;">Шесть символов от хозяина стола</span>
+          </span>
+        </button>
+      </div>
+
+      <div style="margin-top: auto; display: flex; gap: 10px;">
+        <button onClick="{{ goProfile }}" style="flex: 1; display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 12px 14px; border: 1px solid var(--color-divider); border-radius: 999px; background: transparent; font-family: var(--font-body); font-size: 14px; color: var(--color-text);" style-hover="background: var(--color-surface);">
+          <span style="width: 26px; height: 26px; border-radius: 50%; background: var(--color-accent-2-500); color: var(--color-bg); display: grid; place-items: center; font-size: 11px; font-family: var(--font-heading);">АК</span>
+          Профиль
+        </button>
+        <button onClick="{{ goRules }}" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; padding: 12px 14px; border: 1px solid var(--color-divider); border-radius: 999px; background: transparent; font-family: var(--font-body); font-size: 14px; color: var(--color-text);" style-hover="background: var(--color-surface);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h6v18H6a2 2 0 0 1-2-2z"></path><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"></path></svg>
+          Правила
+        </button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- СПИСОК ЛОББИ -->
+  <sc-if value="{{ isList }}" hint-placeholder-val="{{ false }}">
+    <div style="position: relative; height: 844px; display: flex; flex-direction: column; animation: wc-fade 240ms ease both;">
+      <div style="padding: 40px 20px 10px; display: flex; align-items: center; gap: 12px;">
+        <button onClick="{{ goHub }}" style="width: 38px; height: 38px; flex: none; display: grid; place-items: center; cursor: pointer; border: 1px solid var(--color-divider); border-radius: 50%; background: transparent; color: var(--color-text);" style-hover="background: var(--color-surface);">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"></path></svg>
+        </button>
+        <h2 style="font-size: 26px; margin: 0; flex: 1;">Открытые столы</h2>
+        <button onClick="{{ onRefresh }}" style="width: 38px; height: 38px; flex: none; display: grid; place-items: center; cursor: pointer; border: 1px solid var(--color-divider); border-radius: 50%; background: transparent; color: var(--color-accent);" style-hover="background: var(--color-accent-100);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
+        </button>
+      </div>
+
+      <div style="padding: 6px 20px 12px;">
+        <input class="input" type="text" placeholder="Название или код" value="{{ query }}" onChange="{{ onQuery }}">
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; padding: 0 20px 12px; display: flex; flex-direction: column; gap: 10px;">
+        <sc-for list="{{ visibleLobbies }}" as="lobby" hint-placeholder-count="4">
+          <div class="card elev-sm" style="padding: 15px 16px; gap: 9px; animation: wc-rise 260ms ease both;">
+            <div style="display: flex; align-items: flex-start; gap: 10px;">
+              <div style="width: 40px; height: 40px; flex: none; border-radius: 50%; background: {{ lobby.crestBg }}; color: var(--color-bg); display: grid; place-items: center; font-family: var(--font-heading); font-size: 15px;">{{ lobby.crest }}</div>
+              <div style="flex: 1;">
+                <div style="font-family: var(--font-heading); font-size: 18px; line-height: 1.15;">{{ lobby.name }}</div>
+                <div style="font-size: 12px; color: var(--color-neutral-700); margin-top: 2px;">{{ lobby.subtitle }}</div>
+              </div>
+              <sc-if value="{{ lobby.locked }}" hint-placeholder-val="{{ false }}">
+                <span style="color: var(--color-neutral-600); padding-top: 4px;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="3"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+                </span>
+              </sc-if>
+            </div>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <span class="tag tag-accent-2">{{ lobby.playersLabel }}</span>
+              <sc-for list="{{ lobby.dlc }}" as="d" hint-placeholder-count="2">
+                <span class="tag tag-accent">{{ d }}</span>
+              </sc-for>
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+              <span style="font-size: 12px; color: var(--color-neutral-700);">{{ lobby.status }}</span>
+              <button class="btn btn-primary" onClick="{{ lobby.onJoin }}" disabled="{{ lobby.full }}" style="padding: 9px 22px;">{{ lobby.action }}</button>
+            </div>
+          </div>
+        </sc-for>
+
+        <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+          <div style="text-align: center; padding: 50px 24px; color: var(--color-neutral-700); font-size: 13px; animation: wc-fade 200ms ease both;">Ничего не нашлось. Проверьте код или создайте свой стол.</div>
+        </sc-if>
+      </div>
+
+      <div style="padding: 10px 20px 26px;">
+        <button class="btn btn-primary btn-block" onClick="{{ goCreate }}" style="padding: 13px; font-size: 16px; margin: 0;">Создать лобби</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ВХОД ПО КОДУ -->
+  <sc-if value="{{ isCode }}" hint-placeholder-val="{{ false }}">
+    <div style="position: relative; height: 844px; display: flex; flex-direction: column; padding: 40px 24px 26px; animation: wc-fade 240ms ease both;">
+      <button onClick="{{ goHub }}" style="width: 38px; height: 38px; display: grid; place-items: center; cursor: pointer; border: 1px solid var(--color-divider); border-radius: 50%; background: transparent; color: var(--color-text);" style-hover="background: var(--color-surface);">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"></path></svg>
+      </button>
+      <h2 style="font-size: 28px; margin: 20px 0 6px;">Войти по коду</h2>
+      <p style="font-size: 14px; color: var(--color-neutral-700); margin: 0 0 22px;">Шесть символов, которые хозяин стола прислал в чат.</p>
+
+      <input class="input" type="text" placeholder="ABC123" value="{{ codeValue }}" onChange="{{ onCode }}" style="text-align: center; font-family: var(--font-heading); font-size: 26px; letter-spacing: 0.24em; min-height: 62px; text-transform: uppercase;">
+
+      <sc-if value="{{ codeError }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top: 10px; font-size: 13px; color: var(--color-accent-700); text-align: center; animation: wc-fade 180ms ease both;">{{ codeError }}</div>
+      </sc-if>
+
+      <button class="btn btn-primary btn-block" onClick="{{ submitCode }}" style="padding: 13px; font-size: 16px; margin-top: 18px;">Найти стол</button>
+
+      <div style="margin-top: auto; padding: 16px 18px; border-radius: 26px; background: var(--color-surface); font-size: 12px; color: var(--color-neutral-700);">Попробуйте код <span style="font-family: var(--font-heading); color: var(--color-accent-700);">RVN417</span> — это «Вороний брод».</div>
+    </div>
+  </sc-if>
+
+  <!-- СОЗДАНИЕ ЛОББИ -->
+  <sc-if value="{{ isCreate }}" hint-placeholder-val="{{ false }}">
+    <div style="position: relative; height: 844px; display: flex; flex-direction: column; animation: wc-fade 240ms ease both;">
+      <div style="padding: 40px 22px 8px; display: flex; align-items: center; gap: 12px;">
+        <button onClick="{{ goHub }}" style="width: 38px; height: 38px; flex: none; display: grid; place-items: center; cursor: pointer; border: 1px solid var(--color-divider); border-radius: 50%; background: transparent; color: var(--color-text);" style-hover="background: var(--color-surface);">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"></path></svg>
+        </button>
+        <h2 style="font-size: 26px; margin: 0;">Новое лобби</h2>
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; padding: 12px 22px 8px; display: flex; flex-direction: column; gap: 22px;">
+        <div class="field">
+          <label>Название стола</label>
+          <input class="input" type="text" placeholder="Вороний брод" value="{{ formName }}" onChange="{{ onName }}" style="min-height: 46px;">
+        </div>
+
+        <div>
+          <div style="font-size: 12px; color: var(--color-neutral-700); margin-bottom: 8px;">Игроков за столом</div>
+          <div style="display: flex; gap: 10px;">
+            <button onClick="{{ setTwo }}" style="flex: 1; cursor: pointer; padding: 16px 12px; border-radius: 24px; font-family: var(--font-body); border: 1px solid {{ twoBorder }}; background: {{ twoBg }}; color: {{ twoColor }};">
+              <span style="display: block; font-family: var(--font-heading); font-size: 22px; line-height: 1;">2</span>
+              <span style="display: block; font-size: 12px; margin-top: 4px; opacity: 0.8;">дуэль</span>
+            </button>
+            <button onClick="{{ setFour }}" style="flex: 1; cursor: pointer; padding: 16px 12px; border-radius: 24px; font-family: var(--font-body); border: 1px solid {{ fourBorder }}; background: {{ fourBg }}; color: {{ fourColor }};">
+              <span style="display: block; font-family: var(--font-heading); font-size: 22px; line-height: 1;">4</span>
+              <span style="display: block; font-size: 12px; margin-top: 4px; opacity: 0.8;">две пары</span>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+            <div>
+              <div style="font-family: var(--font-heading); font-size: 16px;">Пароль</div>
+              <div style="font-size: 12px; color: var(--color-neutral-700);">Стол виден в списке, но войти смогут только свои</div>
+            </div>
+            <button onClick="{{ togglePw }}" style="width: 52px; height: 30px; flex: none; cursor: pointer; border: none; border-radius: 999px; padding: 3px; background: {{ pwTrackBg }}; transition: background 180ms ease;">
+              <span style="display: block; width: 24px; height: 24px; border-radius: 50%; background: var(--color-bg); box-shadow: var(--shadow-sm); transform: translateX({{ pwKnobX }}); transition: transform 180ms ease;"></span>
+            </button>
+          </div>
+          <sc-if value="{{ pwOn }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top: 12px; animation: wc-rise 200ms ease both;">
+              <input class="input" type="text" placeholder="Пароль для своих" value="{{ formPassword }}" onChange="{{ onPassword }}" style="min-height: 46px;">
+            </div>
+          </sc-if>
+        </div>
+
+        <div>
+          <div style="display: flex; align-items: baseline; justify-content: space-between;">
+            <div style="font-family: var(--font-heading); font-size: 16px;">Дополнения</div>
+            <div style="font-size: 12px; color: var(--color-neutral-700);">{{ dlcCountLabel }}</div>
+          </div>
+          <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+            <sc-for list="{{ dlcList }}" as="d" hint-placeholder-count="4">
+              <button onClick="{{ d.onToggle }}" style="display: flex; align-items: center; gap: 12px; text-align: left; cursor: pointer; padding: 11px 14px; border-radius: 22px; font-family: var(--font-body); border: 1px solid {{ d.border }}; background: {{ d.bg }}; color: var(--color-text);">
+                <span style="width: 34px; height: 34px; flex: none; border-radius: 50%; background: {{ d.tokenBg }}; color: var(--color-bg); display: grid; place-items: center; font-family: var(--font-heading); font-size: 13px;">{{ d.mark }}</span>
+                <span style="flex: 1;">
+                  <span style="display: block; font-size: 14px;">{{ d.name }}</span>
+                  <span style="display: block; font-size: 11px; color: var(--color-neutral-700);">{{ d.note }}</span>
+                </span>
+                <span style="width: 20px; height: 20px; flex: none; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid {{ d.checkBorder }}; background: {{ d.checkBg }}; color: var(--color-bg);">{{ d.check }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding: 12px 22px 26px; background: linear-gradient(to top, var(--color-bg) 72%, transparent);">
+        <button class="btn btn-primary btn-block" onClick="{{ createLobby }}" style="padding: 14px; font-size: 16px; margin: 0;">Собрать стол</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ЛОББИ -->
+  <sc-if value="{{ isLobby }}" hint-placeholder-val="{{ false }}">
+    <div style="position: relative; height: 844px; display: flex; flex-direction: column; animation: wc-fade 240ms ease both;">
+      <div style="padding: 40px 22px 6px; display: flex; align-items: center; gap: 12px;">
+        <button onClick="{{ leaveLobby }}" style="width: 38px; height: 38px; flex: none; display: grid; place-items: center; cursor: pointer; border: 1px solid var(--color-divider); border-radius: 50%; background: transparent; color: var(--color-text);" style-hover="background: var(--color-surface);">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"></path></svg>
+        </button>
+        <div style="flex: 1;">
+          <h2 style="font-size: 25px; margin: 0; line-height: 1.1;">{{ roomName }}</h2>
+          <div style="font-size: 12px; color: var(--color-neutral-700);">{{ roomSub }}</div>
+        </div>
+      </div>
+
+      <div style="padding: 12px 22px 0;">
+        <button onClick="{{ copyCode }}" style="width: 100%; display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 14px 18px; border-radius: 26px; border: 1px dashed var(--color-accent-400); background: var(--color-accent-100); font-family: var(--font-body); color: var(--color-text);">
+          <span style="flex: 1; text-align: left;">
+            <span style="display: block; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-accent-700);">Код стола</span>
+            <span style="display: block; font-family: var(--font-heading); font-size: 24px; letter-spacing: 0.18em;">{{ roomCode }}</span>
+          </span>
+          <span style="font-size: 12px; color: var(--color-accent-700);">{{ copyLabel }}</span>
+        </button>
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; padding: 20px 22px 8px;">
+        <div style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-neutral-700);">Гербы за столом</div>
+        <div style="margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <sc-for list="{{ seats }}" as="seat" hint-placeholder-count="4">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 10px; border-radius: 26px; border: 1px {{ seat.borderStyle }} {{ seat.border }}; background: {{ seat.bg }}; animation: wc-pop 260ms ease both;">
+              <div style="width: 56px; height: 56px; border-radius: 50% 50% 46% 46%; background: {{ seat.crestBg }}; color: {{ seat.crestColor }}; display: grid; place-items: center; font-family: var(--font-heading); font-size: 18px; box-shadow: {{ seat.crestShadow }};">{{ seat.crest }}</div>
+              <div style="font-size: 13px; text-align: center; color: {{ seat.nameColor }};">{{ seat.name }}</div>
+              <div style="font-size: 11px; color: var(--color-neutral-700);">{{ seat.role }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="margin-top: 22px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-neutral-700);">Дополнения в игре</div>
+        <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px;">
+          <sc-for list="{{ roomDlc }}" as="d" hint-placeholder-count="2">
+            <span class="tag tag-accent">{{ d }}</span>
+          </sc-for>
+        </div>
+
+        <div style="margin-top: 22px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-neutral-700);">Жетоны в наборе</div>
+        <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+          <sc-for list="{{ tokens }}" as="t" hint-placeholder-count="5">
+            <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px;">
+              <div class="washed" style="width: 52px; height: 52px; border-radius: 50%; background: {{ t.bg }}; border: 3px solid var(--color-neutral-300); display: grid; place-items: center; font-family: var(--font-heading); font-size: 17px; color: var(--color-bg);">{{ t.mark }}</div>
+              <div style="font-size: 10px; text-align: center; color: var(--color-neutral-700); line-height: 1.2;">{{ t.name }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="padding: 12px 22px 26px; background: linear-gradient(to top, var(--color-bg) 72%, transparent); display: flex; gap: 10px;">
+        <button class="btn btn-secondary" onClick="{{ leaveLobby }}" style="padding: 13px 18px;">Выйти</button>
+        <button class="btn btn-primary" disabled="{{ startDisabled }}" onClick="{{ startGame }}" style="flex: 1; padding: 13px; font-size: 16px;">{{ startLabel }}</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ПРОФИЛЬ -->
+  <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+    <div style="position: relative; height: 844px; display: flex; flex-direction: column; animation: wc-fade 240ms ease both;">
+      <div style="padding: 40px 22px 6px;">
+        <button onClick="{{ goHub }}" style="width: 38px; height: 38px; display: grid; place-items: center; cursor: pointer; border: 1px solid var(--color-divider); border-radius: 50%; background: transparent; color: var(--color-text);" style-hover="background: var(--color-surface);">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"></path></svg>
+        </button>
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; padding: 14px 22px 26px;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div style="width: 76px; height: 76px; flex: none; border-radius: 50% 50% 46% 46%; background: var(--color-accent-2-500); color: var(--color-bg); display: grid; place-items: center; font-family: var(--font-heading); font-size: 26px; box-shadow: var(--shadow-md);">АК</div>
+          <div>
+            <h2 style="font-size: 26px; margin: 0; line-height: 1.1;">Артём К.</h2>
+            <div style="font-size: 13px; color: var(--color-neutral-700);">@artem_k · из Telegram</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px; display: flex; gap: 10px;">
+          <div style="flex: 1; padding: 16px; border-radius: 26px; background: var(--color-surface);">
+            <div style="font-family: var(--font-heading); font-size: 28px; line-height: 1;">24</div>
+            <div style="font-size: 12px; color: var(--color-neutral-700); margin-top: 4px;">победы</div>
+          </div>
+          <div style="flex: 1; padding: 16px; border-radius: 26px; background: var(--color-surface);">
+            <div style="font-family: var(--font-heading); font-size: 28px; line-height: 1;">17</div>
+            <div style="font-size: 12px; color: var(--color-neutral-700); margin-top: 4px;">поражения</div>
+          </div>
+          <div style="flex: 1; padding: 16px; border-radius: 26px; background: var(--color-accent-100);">
+            <div style="font-family: var(--font-heading); font-size: 28px; line-height: 1; color: var(--color-accent-700);">59%</div>
+            <div style="font-size: 12px; color: var(--color-accent-800); margin-top: 4px;">винрейт</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 26px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-neutral-700);">Последние партии</div>
+        <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+          <sc-for list="{{ history }}" as="h" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 22px; background: var(--color-surface);">
+              <span style="width: 8px; height: 8px; flex: none; border-radius: 50%; background: {{ h.dot }};"></span>
+              <span style="flex: 1;">
+                <span style="display: block; font-size: 14px;">{{ h.opponent }}</span>
+                <span style="display: block; font-size: 11px; color: var(--color-neutral-700);">{{ h.meta }}</span>
+              </span>
+              <span style="font-family: var(--font-heading); font-size: 13px; color: {{ h.dot }};">{{ h.result }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ПРАВИЛА -->
+  <sc-if value="{{ isRules }}" hint-placeholder-val="{{ false }}">
+    <div style="position: relative; height: 844px; display: flex; flex-direction: column; animation: wc-fade 240ms ease both;">
+      <div style="padding: 40px 22px 6px; display: flex; align-items: center; gap: 12px;">
+        <button onClick="{{ goHub }}" style="width: 38px; height: 38px; flex: none; display: grid; place-items: center; cursor: pointer; border: 1px solid var(--color-divider); border-radius: 50%; background: transparent; color: var(--color-text);" style-hover="background: var(--color-surface);">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"></path></svg>
+        </button>
+        <h2 style="font-size: 26px; margin: 0;">Правила</h2>
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; padding: 14px 22px 26px; display: flex; flex-direction: column; gap: 10px;">
+        <sc-for list="{{ rules }}" as="r" hint-placeholder-count="4">
+          <div style="display: flex; gap: 14px; padding: 16px 18px; border-radius: 26px; background: var(--color-surface);">
+            <div style="width: 30px; height: 30px; flex: none; border-radius: 50%; background: var(--color-accent); color: var(--color-bg); display: grid; place-items: center; font-family: var(--font-heading); font-size: 14px;">{{ r.n }}</div>
+            <div>
+              <div style="font-family: var(--font-heading); font-size: 17px; line-height: 1.2;">{{ r.title }}</div>
+              <div style="font-size: 13px; color: var(--color-neutral-700); margin-top: 4px;">{{ r.body }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ДИАЛОГ ПАРОЛЯ -->
+  <sc-if value="{{ askPassword }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; display: grid; place-items: end center; padding: 0; background: color-mix(in srgb, var(--color-neutral-900) 45%, transparent); animation: wc-fade 180ms ease both;">
+      <div style="width: 100%; padding: 24px 22px 28px; border-radius: 34px 34px 34px 34px; background: var(--color-surface); box-shadow: var(--shadow-lg); animation: wc-rise 240ms ease both;">
+        <div style="width: 42px; height: 4px; border-radius: 999px; background: var(--color-neutral-400); margin: 0 auto 16px;"></div>
+        <h3 style="font-size: 22px; margin: 0 0 4px;">{{ pwLobbyName }}</h3>
+        <p style="font-size: 13px; color: var(--color-neutral-700); margin: 0 0 16px;">Стол под паролем. Спросите его у хозяина.</p>
+        <input class="input" type="text" placeholder="Пароль" value="{{ pwInput }}" onChange="{{ onPwInput }}" style="min-height: 46px; background: var(--color-bg);">
+        <sc-if value="{{ pwError }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top: 8px; font-size: 12px; color: var(--color-accent-700);">{{ pwError }}</div>
+        </sc-if>
+        <div style="display: flex; gap: 10px; margin-top: 16px;">
+          <button class="btn btn-secondary" onClick="{{ closePw }}" style="flex: 1; padding: 12px;">Отмена</button>
+          <button class="btn btn-primary" onClick="{{ submitPw }}" style="flex: 2; padding: 12px;">Войти</button>
+        </div>
+        <div style="margin-top: 10px; font-size: 11px; color: var(--color-neutral-600); text-align: center;">Подсказка для демо: пароль — <span style="color: var(--color-accent-700);">ворон</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</sc-if>
+
+<!-- ПАРТИЯ — ГОРИЗОНТАЛЬНЫЙ РЕЖИМ -->
+<sc-if value="{{ isGame }}" hint-placeholder-val="{{ false }}">
+<div style="width: 844px; height: 390px; position: relative; overflow: hidden; background: var(--color-bg); color: var(--color-text); border-radius: 34px; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; animation: wc-fade 260ms ease both;">
+
+  <div style="position: relative; display: flex; align-items: center; gap: 10px; padding: 10px 18px 4px;">
+    <button onClick="{{ exitGame }}" style="width: 28px; height: 28px; flex: none; display: grid; place-items: center; cursor: pointer; border: 1px solid var(--color-divider); border-radius: 50%; background: transparent; color: var(--color-text);" style-hover="background: var(--color-surface);">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"></path></svg>
+    </button>
+    <div style="font-family: var(--font-heading); font-size: 16px;">{{ gameTitle }}</div>
+    <div style="font-size: 12px; color: var(--color-neutral-700);">Раунд {{ round }}</div>
+    <div style="flex: 1;"></div>
+    <button onClick="{{ openLaws }}" style="display: flex; align-items: center; gap: 7px; cursor: pointer; padding: 5px 13px; border-radius: 999px; border: 1px solid var(--color-divider); background: transparent; font-family: var(--font-body); font-size: 12px; color: var(--color-text);" style-hover="background: var(--color-surface);">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-2-700)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h11a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6z"></path><path d="M6 4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2"></path><path d="M9 9h6M9 13h4"></path></svg>Законы
+    </button>
+    <button onClick="{{ openLog }}" style="display: flex; align-items: center; gap: 7px; cursor: pointer; padding: 5px 13px; border-radius: 999px; border: 1px solid var(--color-divider); background: transparent; font-family: var(--font-body); font-size: 12px; color: var(--color-text);" style-hover="background: var(--color-surface);">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-700)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"></path></svg>Журнал
+    </button>
+    <div style="display: flex; align-items: center; gap: 8px; padding: 5px 14px; border-radius: 999px; background: {{ turnBg }}; color: {{ turnColor }}; font-size: 12px;">
+      <span style="width: 7px; height: 7px; border-radius: 50%; background: currentColor;"></span>{{ turnLabel }}
+    </div>
+  </div>
+
+  <div style="position: relative; flex: 1; display: flex; align-items: stretch; gap: 12px; padding: 4px 18px 12px; min-height: 0;">
+
+    <div style="width: 184px; flex: none; display: flex; flex-direction: column; gap: 10px;">
+      <sc-for list="{{ gamePlayers }}" as="p" hint-placeholder-count="2">
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 9px; padding: 10px 12px; border-radius: 22px; background: {{ p.bg }}; border: 1px solid {{ p.border }};">
+          <div style="display: flex; align-items: center; gap: 9px;">
+            <div style="width: 30px; height: 30px; flex: none; border-radius: 50% 50% 46% 46%; background: {{ p.crestBg }}; color: var(--color-bg); display: grid; place-items: center; font-family: var(--font-heading); font-size: 12px;">{{ p.crest }}</div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ p.name }}</div>
+              <div style="margin-top: 4px; display: flex; gap: 3px;">
+                <sc-for list="{{ p.markers }}" as="m" hint-placeholder-count="4">
+                  <span style="width: 9px; height: 9px; border-radius: 50%; background: {{ m.bg }}; border: 1.5px solid {{ m.border }};"></span>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 7px;">
+            <sc-for list="{{ p.roster }}" as="u" hint-placeholder-count="4">
+              <button onClick="{{ u.onOpen }}" title="{{ u.name }}" style="position: relative; width: 32px; height: 32px; flex: none; cursor: pointer; padding: 6px; border-radius: 50%; border: 1px solid var(--color-divider); background: var(--color-bg);" style-hover="border-color: var(--color-accent);">
+                <dc-import name="UnitCrest" unit="{{ u.unit }}" color="{{ u.color }}" hint-size="19px,19px" style="width: 19px; height: 19px;"></dc-import>
+                <span style="position: absolute; right: -3px; bottom: -3px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px; background: var(--color-bg); border: 1px solid var(--color-divider); font-size: 9px; line-height: 13px; color: var(--color-neutral-700);">{{ u.count }}</span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="margin-top: auto; display: flex; gap: 7px;">
+            <div style="flex: 1; display: flex; align-items: center; gap: 7px; padding: 6px 10px; border-radius: 999px; background: var(--color-bg); border: 1px solid var(--color-divider);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-600)" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8l-1 3c2.5 1.6 4 4.2 4 7.2 0 3.2-2.8 5.8-7 5.8s-7-2.6-7-5.8c0-3 1.5-5.6 4-7.2z"></path></svg>
+              <span style="font-size: 11px; color: var(--color-neutral-700);">{{ p.bag }}</span>
+            </div>
+            <button onClick="{{ p.onDiscard }}" style="flex: 1; display: flex; align-items: center; gap: 7px; cursor: pointer; padding: 6px 10px; border-radius: 999px; background: var(--color-bg); border: 1px solid var(--color-divider); font-family: var(--font-body);" style-hover="border-color: var(--color-accent);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-700)" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5 12 4l8 4.5-8 4.5z"></path><path d="m4 13 8 4.5L20 13"></path></svg>
+              <span style="font-size: 11px; color: var(--color-neutral-700);">{{ p.discard }}</span>
+            </button>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex: 1; display: grid; place-items: center; min-width: 0;">
+      <div style="position: relative; padding: 10px; border-radius: 28px; background: var(--color-neutral-800); box-shadow: var(--shadow-md);">
+        <div style="position: relative; width: 441px; height: 302px;">
+          <sc-for list="{{ hexes }}" as="h" hint-placeholder-count="45">
+            <div onClick="{{ h.onClick }}" style="position: absolute; left: {{ h.left }}; top: {{ h.top }}; width: 63px; height: 55px; clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%); background: {{ h.bg }}; opacity: {{ h.opacity }}; cursor: {{ h.cursor }}; display: grid; place-items: center; transition: background 160ms ease;">
+              <sc-if value="{{ h.hasToken }}" hint-placeholder-val="{{ false }}">
+                <div style="width: 37px; height: 37px; border-radius: 50%; background: {{ h.tokenBg }}; display: grid; place-items: center; box-shadow: var(--shadow-sm); animation: wc-pop 220ms ease both;">
+                  <dc-import name="UnitCrest" unit="{{ h.unit }}" color="var(--color-bg)" hint-size="25px,25px" style="width: 25px; height: 25px;"></dc-import>
+                </div>
+              </sc-if>
+              <sc-if value="{{ h.isLoc }}" hint-placeholder-val="{{ false }}">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-2-800)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.8;"><path d="M12 3.6 19 8v8l-7 4.4L5 16V8z"></path><path d="M12 8.4 15.4 10.5v3.6L12 16.2 8.6 14.1v-3.6z"></path></svg>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div style="width: 84px; flex: none; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+      <div style="font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-neutral-700);">Рука</div>
+      <sc-for list="{{ hand }}" as="c" hint-placeholder-count="3">
+        <button onClick="{{ c.onOpen }}" title="{{ c.name }}" style="width: 64px; height: 64px; cursor: pointer; padding: 0; display: grid; place-items: center; border-radius: 50%; border: 3px solid {{ c.ring }}; background: {{ c.discBg }}; transform: translateX({{ c.lift }}); transition: transform 160ms ease, border-color 160ms ease; box-shadow: var(--shadow-sm);">
+          <dc-import name="UnitCrest" unit="{{ c.unit }}" color="var(--color-bg)" hint-size="34px,34px" style="width: 34px; height: 34px;"></dc-import>
+        </button>
+      </sc-for>
+      <sc-if value="{{ pending }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ cancelPending }}" style="margin-top: auto; width: 100%; cursor: pointer; padding: 8px 6px; border-radius: 18px; border: 1px solid var(--color-accent-400); background: var(--color-accent-100); color: var(--color-accent-800); font-family: var(--font-body); font-size: 11px; line-height: 1.3; animation: wc-rise 180ms ease both;">
+          {{ pendingText }}<span style="display: block; text-decoration: underline;">отмена</span>
+        </button>
+      </sc-if>
+    </div>
+  </div>
+
+  <sc-if value="{{ modalOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; padding: 20px; background: color-mix(in srgb, var(--color-neutral-900) 52%, transparent); animation: wc-fade 160ms ease both;">
+      <div style="width: {{ modalWidth }}; max-height: 344px; overflow-y: auto; padding: 18px 20px; border-radius: 28px; background: var(--color-bg); box-shadow: var(--shadow-lg); animation: wc-pop 200ms ease both;">
+
+        <sc-if value="{{ showUnit }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; gap: 16px;">
+            <div style="width: 78px; height: 78px; flex: none; border-radius: 50%; background: {{ cardDiscBg }}; display: grid; place-items: center; box-shadow: var(--shadow-sm);">
+              <dc-import name="UnitCrest" unit="{{ cardUnit }}" color="var(--color-bg)" hint-size="44px,44px" style="width: 44px; height: 44px;"></dc-import>
+            </div>
+            <div style="flex: 1;">
+              <h3 style="font-size: 22px; margin: 0 0 2px;">{{ cardName }}</h3>
+              <div style="font-size: 12px; color: var(--color-neutral-700);">{{ cardCoins }}</div>
+              <p style="font-size: 13px; margin: 8px 0 0; line-height: 1.45;">{{ cardAbility }}</p>
+            </div>
+          </div>
+          <sc-if value="{{ cardActionsOn }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <sc-for list="{{ actions }}" as="a" hint-placeholder-count="4">
+                <button onClick="{{ a.onPick }}" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; padding: 9px 14px; border-radius: 999px; font-family: var(--font-body); font-size: 13px; border: 1px solid var(--color-divider); background: var(--color-surface); color: var(--color-text);" style-hover="border-color: var(--color-accent); background: var(--color-accent-100);">
+                  {{ a.name }}<span style="font-size: 10px; color: var(--color-neutral-700);">{{ a.cost }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ showRoster }}" hint-placeholder-val="{{ false }}">
+          <h3 style="font-size: 19px; margin: 0 0 10px;">{{ rosterTitle }}</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <sc-for list="{{ rosterItems }}" as="r" hint-placeholder-count="4">
+              <div style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 11px; border-radius: 18px; background: var(--color-surface);">
+                <div style="width: 34px; height: 34px; flex: none; border-radius: 50%; background: {{ r.discBg }}; display: grid; place-items: center;">
+                  <dc-import name="UnitCrest" unit="{{ r.unit }}" color="var(--color-bg)" hint-size="20px,20px" style="width: 20px; height: 20px;"></dc-import>
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="display: flex; align-items: baseline; gap: 6px;"><span style="font-family: var(--font-heading); font-size: 14px;">{{ r.name }}</span><span style="font-size: 11px; color: var(--color-neutral-700); white-space: nowrap;">{{ r.coins }}</span></div>
+                  <div style="font-size: 11px; color: var(--color-neutral-700); line-height: 1.35;">{{ r.ability }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showDiscard }}" hint-placeholder-val="{{ false }}">
+          <h3 style="font-size: 19px; margin: 0 0 3px;">{{ discardTitle }}</h3>
+          <div style="font-size: 11px; color: var(--color-neutral-700); margin-bottom: 12px;">{{ discardSub }}</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+            <sc-for list="{{ discardItems }}" as="d" hint-placeholder-count="4">
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; width: 78px;">
+                <div style="position: relative; width: 52px; height: 52px; border-radius: 50%; background: {{ d.discBg }}; display: grid; place-items: center; box-shadow: var(--shadow-sm);">
+                  <dc-import name="UnitCrest" unit="{{ d.unit }}" color="var(--color-bg)" hint-size="28px,28px" style="width: 28px; height: 28px;"></dc-import>
+                  <span style="position: absolute; right: -4px; bottom: -4px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px; background: var(--color-bg); border: 1px solid var(--color-divider); font-size: 10px; line-height: 16px; color: var(--color-neutral-700);">{{ d.count }}</span>
+                </div>
+                <div style="font-size: 11px; text-align: center; color: var(--color-neutral-700);">{{ d.name }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showLaws }}" hint-placeholder-val="{{ false }}">
+          <h3 style="font-size: 19px; margin: 0 0 3px;">Законы дополнения «Знать»</h3>
+          <div style="font-size: 11px; color: var(--color-neutral-700); margin-bottom: 10px;">Действуют всю партию для обоих игроков.</div>
+          <div style="display: flex; flex-direction: column; gap: 7px;">
+            <sc-for list="{{ laws }}" as="l" hint-placeholder-count="3">
+              <div style="display: flex; gap: 11px; padding: 10px 13px; border-radius: 18px; background: var(--color-accent-2-100);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-2-700)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 2px;"><path d="M12 3.6 19 8v8l-7 4.4L5 16V8z"></path><path d="M12 9v6"></path><path d="M9 12h6"></path></svg>
+                <div>
+                  <div style="font-family: var(--font-heading); font-size: 14px;">{{ l.name }}</div>
+                  <div style="font-size: 11px; color: var(--color-accent-2-800); line-height: 1.4;">{{ l.text }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showLog }}" hint-placeholder-val="{{ false }}">
+          <h3 style="font-size: 19px; margin: 0 0 12px;">Журнал ходов</h3>
+          <div style="display: flex; flex-direction: column; gap: 7px;">
+            <sc-for list="{{ logAll }}" as="e" hint-placeholder-count="5">
+              <div style="display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.4;">
+                <span style="width: 7px; height: 7px; flex: none; margin-top: 6px; border-radius: 50%; background: {{ e.color }};"></span>{{ e.text }}
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+  </sc-if>
+</div>
+</sc-if>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:430,&quot;height&quot;:900}}">
+const DLC = [
+  { id: 'base', name: 'Базовая игра', note: '16 отрядов, обязательна', mark: 'Б', locked: true },
+  { id: 'nobility', name: 'Знать', note: '4 отряда, королевские приказы' },
+  { id: 'siege', name: 'Осада', note: 'Укрепления и осадные орудия' },
+  { id: 'siege2', name: 'Наёмники', note: 'Наём отрядов за монеты' }
+];
+
+const TOKENS = [
+  { mark: 'Л', name: 'Лучник', bg: 'var(--color-accent-500)' },
+  { mark: 'К', name: 'Конница', bg: 'var(--color-accent-2-500)' },
+  { mark: 'М', name: 'Меч', bg: 'var(--color-neutral-600)' },
+  { mark: 'Щ', name: 'Щит', bg: 'var(--color-accent-700)' },
+  { mark: 'Ш', name: 'Шпион', bg: 'var(--color-accent-2-700)' }
+];
+
+const LOBBIES = [
+  { id: 1, code: 'RVN417', name: 'Вороний брод', host: 'Марина', crest: 'ВБ', crestBg: 'var(--color-accent-500)', players: 1, max: 2, locked: true, password: 'ворон', dlc: ['Знать'] },
+  { id: 2, code: 'HLM902', name: 'Шлем и молот', host: 'Игорь', crest: 'ШМ', crestBg: 'var(--color-accent-2-600)', players: 3, max: 4, locked: false, dlc: ['Осада', 'Наёмники'] },
+  { id: 3, code: 'DUB155', name: 'Быстрая дуэль', host: 'Лена', crest: 'БД', crestBg: 'var(--color-neutral-600)', players: 1, max: 2, locked: false, dlc: [] },
+  { id: 4, code: 'STL730', name: 'Стол новичков', host: 'Павел', crest: 'СН', crestBg: 'var(--color-accent-700)', players: 2, max: 4, locked: false, dlc: ['Знать'] },
+  { id: 5, code: 'KRN088', name: 'Корона и пепел', host: 'Дима', crest: 'КП', crestBg: 'var(--color-accent-2-700)', players: 4, max: 4, locked: false, dlc: ['Осада'] }
+];
+
+class Component extends DCLogic {
+  static LOCS = ['2,1', '2,4', '3,0', '3,3', '4,2', '4,4', '5,0', '5,3', '6,1', '6,4'];
+
+  state = {
+    g: null,
+    screen: 'hub', query: '', codeValue: '', codeError: '',
+    pwTarget: null, pwInput: '', pwError: '', copied: false,
+    formName: '', formPassword: '', pwOn: false, size: 2,
+    dlc: { base: true, nobility: true, siege: false, siege2: false },
+    room: null
+  };
+
+  gameState = null;
+
+  set = (patch) => this.setState(patch);
+  nav = (screen) => this.setState({ screen });
+
+  matches(l) {
+    const q = this.state.query.trim().toLowerCase();
+    if (!q) return true;
+    return l.name.toLowerCase().includes(q) || l.code.toLowerCase().includes(q);
+  }
+
+  openLobby(l, joined) {
+    const seats = [];
+    const names = ['Марина', 'Игорь', 'Лена', 'Павел'];
+    const crests = ['МК', 'ИР', 'ЛС', 'ПВ'];
+    const bgs = ['var(--color-accent-500)', 'var(--color-accent-2-600)', 'var(--color-neutral-600)', 'var(--color-accent-700)'];
+    for (let i = 0; i < l.max; i++) {
+      const taken = i < l.players;
+      seats.push(taken
+        ? { name: i === 0 ? l.host : names[i], crest: i === 0 ? crests[0] : crests[i], bg: bgs[i], role: i === 0 ? 'хозяин стола' : 'готов' }
+        : null);
+    }
+    const free = seats.indexOf(null);
+    if (joined && free !== -1) seats[free] = { name: 'Артём К. (вы)', crest: 'АК', bg: 'var(--color-accent-2-500)', role: 'готов', you: true };
+    this.setState({ screen: 'lobby', copied: false, room: { name: l.name, code: l.code, host: l.host, dlc: l.dlc, seats, max: l.max, isHost: !!l.isHost } });
+  }
+
+  static UNITS = {
+    archer: { name: 'Лучник', acc: 'лучника', ability: 'Стреляет через клетку, не входя в ближний бой. Слаб, если враг подошёл вплотную.', coins: 4 },
+    cavalry: { name: 'Конница', acc: 'конницу', ability: 'Двигается на две клетки за одно действие и атакует с разгона.', coins: 4 },
+    sword: { name: 'Меч', acc: 'меч', ability: 'Атакует соседний гекс и держит удар — основа любой линии.', coins: 5 },
+    shield: { name: 'Щит', acc: 'щит', ability: 'Не отступает: выдерживает первую атаку и остаётся на локации.', coins: 4 },
+    spy: { name: 'Лазутчик', acc: 'лазутчика', ability: 'Проходит мимо чужих отрядов и занимает локации в тылу.', coins: 3 },
+    crossbow: { name: 'Арбалет', acc: 'арбалет', ability: 'Мощный выстрел, но следующий ход уходит на перезарядку.', coins: 4 },
+    lancer: { name: 'Копейщик', acc: 'копейщика', ability: 'Атакует на замахе, двигаясь на врага по прямой.', coins: 5 },
+    royal: { name: 'Королевская монета', acc: 'королевскую монету', ability: 'Заменяет любой приказ, но возвращается в мешок только раз в раунд.', coins: 1 }
+  };
+
+  static LAWS = [
+    { name: 'Королевский указ', text: 'Раз в раунд монету можно сыграть рубашкой вниз как любой приказ.' },
+    { name: 'Право осады', text: 'Отряд, стоящий на локации, выдерживает первую атаку в раунде.' },
+    { name: 'Десятина', text: 'Заняв третью локацию, доберите монету из мешка сверх нормы.' }
+  ];
+
+  ensureGame() {
+    if (this.state.g) return;
+    this.setState({ g: {
+      round: 3, turn: 'you', modal: null, rosterSide: 'you',
+      tokens: { '2,4': { o: 'you', u: 'archer' }, '3,3': { o: 'you', u: 'sword' }, '6,0': { o: 'foe', u: 'lancer' }, '5,1': { o: 'foe', u: 'spy' } },
+      hand: ['archer', 'cavalry', 'shield'],
+      myUnits: ['archer', 'cavalry', 'sword', 'shield'],
+      foeUnits: ['lancer', 'spy', 'crossbow', 'shield'],
+      myLeft: { archer: 3, cavalry: 4, sword: 2, shield: 4 },
+      foeLeft: { lancer: 4, spy: 2, crossbow: 3, shield: 5 },
+      sel: null, pending: null, bag: 9, discard: 4, foeBag: 7, foeDiscard: 6, mine: 4, theirs: 3,
+      myPile: { sword: 2, archer: 1, cavalry: 1 }, foePile: { crossbow: 3, lancer: 2, shield: 1 },
+      log: [ { text: 'Соперник двинул конницу к броду', color: 'var(--color-accent-700)' }, { text: 'Вы заняли локацию мечом', color: 'var(--color-accent-2-700)' }, { text: 'Раунд 3 начался', color: 'var(--color-neutral-700)' } ]
+    } });
+  }
+
+  coins(n) {
+    const t = n % 10, h = n % 100;
+    if (t === 1 && h !== 11) return n + ' монета';
+    if (t >= 2 && t <= 4 && (h < 12 || h > 14)) return n + ' монеты';
+    return n + ' монет';
+  }
+
+  updG(fn) { this.setState((st) => ({ g: Object.assign({}, st.g, fn(st.g)) })); }
+
+  neighbors(col, row) {
+    const odd = col % 2 === 1;
+    return [[col - 1, row], [col + 1, row], [col, row - 1], [col, row + 1],
+      [col - 1, odd ? row + 1 : row - 1], [col + 1, odd ? row + 1 : row - 1]]
+      .filter((p) => p[0] >= 2 && p[0] <= 6 && p[1] >= 0 && p[1] <= 4).map((p) => p[0] + ',' + p[1]);
+  }
+
+  legalHexes(g) {
+    const keys = [];
+    if (g.pending === 'deploy') {
+      Component.LOCS.forEach((k) => { if (!g.tokens[k]) keys.push(k); });
+    } else if (g.pending === 'move' || g.pending === 'attack') {
+      Object.keys(g.tokens).forEach((k) => {
+        if (g.tokens[k].o !== 'you') return;
+        const p = k.split(',').map(Number);
+        this.neighbors(p[0], p[1]).forEach((n) => {
+          const occ = g.tokens[n];
+          if (g.pending === 'move' && !occ) keys.push(n);
+          if (g.pending === 'attack' && occ && occ.o === 'foe') keys.push(n);
+        });
+      });
+    }
+    return keys;
+  }
+
+  spendCoin(g, text) {
+    const hand = g.hand.filter((_, i) => i !== g.sel);
+    const spent = g.hand[g.sel];
+    const myPile = Object.assign({}, g.myPile);
+    if (spent) myPile[spent] = (myPile[spent] || 0) + 1;
+    const log = [{ text: text, color: 'var(--color-accent-2-700)' }].concat(g.log).slice(0, 12);
+    setTimeout(() => this.foeMove(), 1100);
+    return { hand: hand, log: log, sel: null, pending: null, modal: null, myPile: myPile, discard: g.discard + 1, turn: 'foe' };
+  }
+
+  foeMove() {
+    this.updG((g) => {
+      if (!g || g.turn !== 'foe') return {};
+      const tokens = Object.assign({}, g.tokens);
+      if (tokens['6,0'] && !tokens['6,1']) { tokens['6,1'] = tokens['6,0']; delete tokens['6,0']; }
+      const log = [{ text: this.foeName() + ' двинула копейщика вглубь поля', color: 'var(--color-accent-700)' }].concat(g.log).slice(0, 12);
+      const empty = g.hand.length === 0;
+      return { tokens: tokens, log: log, turn: 'you', foeDiscard: g.foeDiscard + 1,
+        hand: empty ? ['sword', 'spy', 'archer'] : g.hand,
+        round: empty ? g.round + 1 : g.round, bag: empty ? Math.max(0, g.bag - 3) : g.bag };
+    });
+  }
+
+  foeName() {
+    const r = this.state.room;
+    return r && !r.isHost ? r.host : 'Марина';
+  }
+
+  gameVals() {
+    const g = this.state.g;
+    if (!g) return { isGame: false, portrait: true };
+    const U = Component.UNITS;
+    const legal = this.legalHexes(g);
+    const hexes = [];
+    for (let col = 0; col < 9; col++) {
+      for (let row = 0; row < 5; row++) {
+        const key = col + ',' + row;
+        const playable = col >= 2 && col <= 6;
+        const t = g.tokens[key];
+        const hot = legal.indexOf(key) !== -1;
+        const isLoc = Component.LOCS.indexOf(key) !== -1 && !t;
+        hexes.push({
+          left: (col * 47.25) + 'px', top: (row * 55 + (col % 2) * 27.5) + 'px',
+          bg: hot ? 'var(--color-accent-400)' : (isLoc ? 'var(--color-accent-2-400)' : (playable ? 'var(--color-neutral-200)' : 'var(--color-neutral-700)')),
+          opacity: playable ? 1 : 0.55,
+          cursor: hot ? 'pointer' : 'default',
+          isLoc: isLoc, hasToken: !!t, unit: t ? t.u : 'sword',
+          tokenBg: t && t.o === 'you' ? 'var(--color-accent-2-600)' : 'var(--color-accent-600)',
+          onClick: hot ? () => this.playOn(key) : null
+        });
+      }
+    }
+
+    const marks = (n, total, bg) => {
+      const arr = [];
+      for (let i = 0; i < total; i++) arr.push({ bg: i < n ? bg : 'transparent', border: i < n ? bg : 'var(--color-neutral-400)' });
+      return arr;
+    };
+    const rosterOf = (side) => {
+      const ids = side === 'you' ? g.myUnits : g.foeUnits;
+      const left = side === 'you' ? g.myLeft : g.foeLeft;
+      const disc = side === 'you' ? 'var(--color-accent-2-600)' : 'var(--color-accent-600)';
+      return ids.map((id) => ({ unit: id, name: U[id].name, ability: U[id].ability, coins: this.coins(left[id]) + ' в мешке',
+        count: left[id], discBg: disc, color: disc,
+        bg: 'var(--color-bg)', border: 'var(--color-divider)',
+        onOpen: () => this.updG(() => ({ modal: 'roster', rosterSide: side })) }));
+    };
+
+    const sel = g.sel !== null && g.sel !== undefined ? g.hand[g.sel] : null;
+    const cardUnit = g.modal === 'unit' && sel ? sel : (g.hand[0] || 'sword');
+    const acts = [
+      { id: 'deploy', name: 'Развернуть', cost: 'на локацию' },
+      { id: 'move', name: 'Двинуть', cost: 'на клетку' },
+      { id: 'attack', name: 'Атаковать', cost: 'смежный гекс' },
+      { id: 'order', name: 'Приказ', cost: 'рубашкой вниз' },
+      { id: 'discard', name: 'Сбросить', cost: 'в сброс' }
+    ];
+
+    return {
+      isGame: this.state.screen === 'game', portrait: this.state.screen !== 'game',
+      gameTitle: this.state.room ? this.state.room.name : 'Вороний брод',
+      round: g.round,
+      turnLabel: g.turn === 'you' ? 'Ваш ход' : 'Ход соперника',
+      turnBg: g.turn === 'you' ? 'var(--color-accent-2-200)' : 'var(--color-accent-100)',
+      turnColor: g.turn === 'you' ? 'var(--color-accent-2-800)' : 'var(--color-accent-800)',
+      exitGame: () => this.nav('lobby'),
+      gamePlayers: [
+        { name: 'Артём К.', crest: 'АК', crestBg: 'var(--color-accent-2-600)',
+          bg: g.turn === 'you' ? 'var(--color-accent-2-100)' : 'var(--color-surface)',
+          border: g.turn === 'you' ? 'var(--color-accent-2-400)' : 'transparent',
+          markers: marks(g.mine, 6, 'var(--color-accent-2-600)'), roster: rosterOf('you'),
+          bag: g.bag, discard: g.discard, onDiscard: () => this.updG(() => ({ modal: 'discard', rosterSide: 'you' })) },
+        { name: this.foeName(), crest: this.foeName().slice(0, 2).toUpperCase(), crestBg: 'var(--color-accent-600)',
+          bg: g.turn === 'foe' ? 'var(--color-accent-100)' : 'var(--color-surface)',
+          border: g.turn === 'foe' ? 'var(--color-accent-400)' : 'transparent',
+          markers: marks(g.theirs, 6, 'var(--color-accent-600)'), roster: rosterOf('foe'),
+          bag: g.foeBag, discard: g.foeDiscard, onDiscard: () => this.updG(() => ({ modal: 'discard', rosterSide: 'foe' })) }
+      ],
+      hexes: hexes,
+      hand: g.hand.map((id, i) => ({
+        unit: id, name: U[id].name,
+        discBg: g.sel === i ? 'var(--color-accent)' : 'var(--color-neutral-600)',
+        iconColor: 'var(--color-bg)',
+        ring: g.sel === i ? 'var(--color-accent-700)' : 'var(--color-neutral-300)',
+        lift: g.sel === i ? '-6px' : '0px',
+        onOpen: () => this.updG(() => ({ sel: i, modal: 'unit' }))
+      })),
+      pending: !!g.pending,
+      pendingText: g.pending === 'attack' ? 'Выберите отряд соперника' : 'Выберите подсвеченный гекс',
+      cancelPending: () => this.updG(() => ({ pending: null, sel: null })),
+      openLog: () => this.updG(() => ({ modal: 'log' })),
+      openLaws: () => this.updG(() => ({ modal: 'laws' })),
+      closeModal: () => this.updG(() => ({ modal: null })),
+      modalOpen: !!g.modal,
+      modalWidth: g.modal === 'roster' ? '560px' : (g.modal === 'unit' ? '440px' : (g.modal === 'discard' ? '440px' : '400px')),
+      showUnit: g.modal === 'unit', showRoster: g.modal === 'roster', showLaws: g.modal === 'laws', showLog: g.modal === 'log', showDiscard: g.modal === 'discard',
+      discardTitle: g.rosterSide === 'you' ? 'Ваш сброс' : 'Сброс соперника',
+      discardSub: 'Монеты вернутся в мешок, когда он опустеет.',
+      discardItems: Object.keys(g.rosterSide === 'you' ? g.myPile : g.foePile).map((id) => ({
+        unit: id, name: U[id].name, count: (g.rosterSide === 'you' ? g.myPile : g.foePile)[id],
+        discBg: g.rosterSide === 'you' ? 'var(--color-accent-2-600)' : 'var(--color-accent-600)' })),
+      cardUnit: cardUnit, cardName: U[cardUnit].name, cardAbility: U[cardUnit].ability,
+      cardCoins: this.coins(g.myLeft[cardUnit] || U[cardUnit].coins) + ' в мешке · ' + U[cardUnit].coins + ' в наборе',
+      cardDiscBg: 'var(--color-accent-2-600)',
+      cardActionsOn: g.turn === 'you',
+      actions: acts.map((a) => ({ name: a.name, cost: a.cost, onPick: () => {
+        if (a.id === 'discard') return this.updG((st) => this.spendCoin(st, 'Вы сбросили ' + U[cardUnit].acc + ' и взяли монету'));
+        if (a.id === 'order') return this.updG((st) => this.spendCoin(st, 'Вы сыграли приказ рубашкой вниз'));
+        this.updG(() => ({ pending: a.id, modal: null }));
+      } })),
+      rosterTitle: g.rosterSide === 'you' ? 'Ваш набор отрядов' : 'Набор соперника',
+      rosterItems: rosterOf(g.rosterSide),
+      laws: Component.LAWS,
+      logAll: g.log
+    };
+  }
+
+  playOn(key) {
+    this.updG((g) => {
+      const tokens = Object.assign({}, g.tokens);
+      const id = g.hand[g.sel] || 'sword';
+      const name = Component.UNITS[id].acc;
+      let text = '';
+      if (g.pending === 'deploy') { tokens[key] = { o: 'you', u: id }; text = 'Вы развернули ' + name + ' на локации'; }
+      if (g.pending === 'move') {
+        const from = Object.keys(tokens).find((k) => {
+          if (tokens[k].o !== 'you') return false;
+          const p = k.split(',').map(Number);
+          return this.neighbors(p[0], p[1]).indexOf(key) !== -1;
+        });
+        if (from) { tokens[key] = tokens[from]; delete tokens[from]; }
+        text = 'Вы двинули отряд на соседний гекс';
+      }
+      if (g.pending === 'attack') { delete tokens[key]; text = 'Вы сбили отряд соперника'; }
+      return Object.assign({ tokens: tokens }, this.spendCoin(g, text));
+    });
+  }
+
+  renderVals() {
+    const s = this.state;
+    const list = LOBBIES.filter((l) => this.matches(l));
+
+    const dlcNames = DLC.filter((d) => s.dlc[d.id]).map((d) => d.name);
+    const room = s.room;
+    const seats = room ? room.seats.map((seat, i) => seat
+      ? { name: seat.name, crest: seat.crest, crestBg: seat.bg, crestColor: 'var(--color-bg)', crestShadow: 'var(--shadow-sm)', role: seat.role, bg: seat.you ? 'var(--color-accent-2-100)' : 'var(--color-surface)', border: seat.you ? 'var(--color-accent-2-400)' : 'transparent', borderStyle: 'solid', nameColor: 'var(--color-text)' }
+      : { name: 'Свободно', crest: '+', crestBg: 'transparent', crestColor: 'var(--color-neutral-500)', crestShadow: 'inset 0 0 0 2px var(--color-neutral-300)', role: 'ждём игрока', bg: 'transparent', border: 'var(--color-neutral-300)', borderStyle: 'dashed', nameColor: 'var(--color-neutral-600)' }
+    ) : [];
+    const filled = room ? room.seats.filter(Boolean).length : 0;
+    const ready = room ? filled === room.max : false;
+
+    return Object.assign(this.gameVals(), {
+      isHub: s.screen === 'hub', isList: s.screen === 'list', isCode: s.screen === 'code',
+      isCreate: s.screen === 'create', isLobby: s.screen === 'lobby', isProfile: s.screen === 'profile',
+      isRules: s.screen === 'rules',
+
+      goHub: () => this.nav('hub'), goList: () => this.nav('list'), goCode: () => this.setState({ screen: 'code', codeError: '' }),
+      goCreate: () => this.nav('create'), goProfile: () => this.nav('profile'), goRules: () => this.nav('rules'),
+
+      openCountLabel: LOBBIES.filter((l) => l.players < l.max).length + ' открытых стола сейчас',
+
+      query: s.query,
+      onQuery: (e) => this.set({ query: e.target.value }),
+      onRefresh: () => this.set({ query: '' }),
+      noResults: list.length === 0,
+      visibleLobbies: list.map((l) => ({
+        name: l.name,
+        subtitle: 'хозяин ' + l.host + ' · код ' + l.code,
+        crest: l.crest, crestBg: l.crestBg,
+        locked: l.locked,
+        dlc: l.dlc.length ? l.dlc : ['Только база'],
+        playersLabel: l.players + ' из ' + l.max,
+        full: l.players >= l.max,
+        status: l.players >= l.max ? 'Стол собран' : (l.locked ? 'Нужен пароль' : 'Ждут игроков'),
+        action: l.players >= l.max ? 'Занято' : 'Войти',
+        onJoin: () => (l.locked ? this.setState({ pwTarget: l, pwInput: '', pwError: '' }) : this.openLobby(l, true))
+      })),
+
+      codeValue: s.codeValue,
+      codeError: s.codeError,
+      onCode: (e) => this.set({ codeValue: e.target.value.toUpperCase(), codeError: '' }),
+      submitCode: () => {
+        const found = LOBBIES.find((l) => l.code === s.codeValue.trim().toUpperCase());
+        if (!found) return this.set({ codeError: 'Стол с таким кодом не найден' });
+        if (found.players >= found.max) return this.set({ codeError: 'Стол уже собран' });
+        if (found.locked) return this.setState({ pwTarget: found, pwInput: '', pwError: '' });
+        this.openLobby(found, true);
+      },
+
+      askPassword: !!s.pwTarget,
+      pwLobbyName: s.pwTarget ? s.pwTarget.name : '',
+      pwInput: s.pwInput, pwError: s.pwError,
+      onPwInput: (e) => this.set({ pwInput: e.target.value, pwError: '' }),
+      closePw: () => this.set({ pwTarget: null }),
+      submitPw: () => {
+        if (s.pwInput.trim().toLowerCase() !== s.pwTarget.password) return this.set({ pwError: 'Неверный пароль' });
+        const t = s.pwTarget;
+        this.setState({ pwTarget: null });
+        this.openLobby(t, true);
+      },
+
+      formName: s.formName,
+      onName: (e) => this.set({ formName: e.target.value }),
+      formPassword: s.formPassword,
+      onPassword: (e) => this.set({ formPassword: e.target.value }),
+      pwOn: s.pwOn,
+      togglePw: () => this.set({ pwOn: !s.pwOn }),
+      pwTrackBg: s.pwOn ? 'var(--color-accent)' : 'var(--color-neutral-400)',
+      pwKnobX: s.pwOn ? '22px' : '0px',
+      setTwo: () => this.set({ size: 2 }),
+      setFour: () => this.set({ size: 4 }),
+      twoBg: s.size === 2 ? 'var(--color-accent)' : 'var(--color-surface)',
+      twoColor: s.size === 2 ? 'var(--color-bg)' : 'var(--color-text)',
+      twoBorder: s.size === 2 ? 'var(--color-accent)' : 'var(--color-divider)',
+      fourBg: s.size === 4 ? 'var(--color-accent)' : 'var(--color-surface)',
+      fourColor: s.size === 4 ? 'var(--color-bg)' : 'var(--color-text)',
+      fourBorder: s.size === 4 ? 'var(--color-accent)' : 'var(--color-divider)',
+      dlcCountLabel: dlcNames.length + ' из ' + DLC.length,
+      dlcList: DLC.map((d) => {
+        const on = !!s.dlc[d.id];
+        return {
+          name: d.name, note: d.locked ? d.note : d.note, mark: d.mark || d.name.slice(0, 1),
+          bg: on ? 'var(--color-accent-100)' : 'var(--color-surface)',
+          border: on ? 'var(--color-accent-400)' : 'var(--color-divider)',
+          tokenBg: on ? 'var(--color-accent)' : 'var(--color-neutral-400)',
+          check: on ? '✓' : '',
+          checkBg: on ? 'var(--color-accent)' : 'transparent',
+          checkBorder: on ? 'var(--color-accent)' : 'var(--color-neutral-400)',
+          onToggle: () => { if (d.locked) return; this.setState((st) => ({ dlc: Object.assign({}, st.dlc, { [d.id]: !st.dlc[d.id] }) })); }
+        };
+      }),
+      createLobby: () => this.openLobby({
+        name: s.formName.trim() || 'Стол Артёма',
+        code: 'ART' + (100 + Math.floor(Math.random() * 899)),
+        host: 'Артём К.', players: 1, max: s.size,
+        dlc: dlcNames.filter((n) => n !== 'Базовая игра'), isHost: true
+      }, false),
+
+      roomName: room ? room.name : '',
+      roomSub: room ? (room.isHost ? 'вы хозяин стола' : 'хозяин ' + room.host) : '',
+      roomCode: room ? room.code : '',
+      roomDlc: room ? (room.dlc.length ? room.dlc : ['Только база']) : [],
+      copyLabel: s.copied ? 'скопировано' : 'копировать',
+      copyCode: () => { this.set({ copied: true }); setTimeout(() => this.set({ copied: false }), 1600); },
+      seats,
+      tokens: TOKENS,
+      startDisabled: !ready,
+      startLabel: ready ? 'Начать партию' : 'Ждём ' + (room ? room.max - filled : 0),
+      startGame: () => { this.ensureGame(); this.nav('game'); },
+      leaveLobby: () => this.nav('hub'),
+
+      history: [
+        { opponent: 'против Марины', meta: 'Вороний брод · 2 игрока · вчера', result: 'победа', dot: 'var(--color-accent-2-600)' },
+        { opponent: 'против Игоря и пары', meta: 'Шлем и молот · 4 игрока · 3 дня назад', result: 'поражение', dot: 'var(--color-accent-600)' },
+        { opponent: 'против Лены', meta: 'Быстрая дуэль · 2 игрока · неделю назад', result: 'победа', dot: 'var(--color-accent-2-600)' },
+        { opponent: 'против Павла', meta: 'Стол новичков · 4 игрока · неделю назад', result: 'победа', dot: 'var(--color-accent-2-600)' }
+      ],
+
+      rules: [
+        { n: '1', title: 'Наберите отряды', body: 'В начале партии игроки по очереди выбирают жетоны отрядов из общего ряда — набор определяет вашу тактику.' },
+        { n: '2', title: 'Тяните из сундука', body: 'Каждый ход вы вслепую достаёте жетоны из мешка и тратите их на действия: развернуть, двинуть, атаковать, приказать.' },
+        { n: '3', title: 'Держите точки', body: 'Побеждает тот, кто расставит все свои контрольные маркеры на поле и удержит их до конца хода противника.' },
+        { n: '4', title: 'Дуэль или пары', body: 'На двоих играют один на один; вчетвером — две команды по двое, и союзники не показывают друг другу руку.' }
+      ]
+    });
+  }
+}
+</script>
+</body>
+</html>

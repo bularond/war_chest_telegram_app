@@ -1,0 +1,16 @@
+{
+  "version": "fitted@value-200",
+  "markers": 1,
+  "material": 0.585,
+  "scarcity": 0.12683760683760686,
+  "reach": -0.015042735042735044,
+  "reserve": 0.5493,
+  "bolster": -0.0308,
+  "proximity": 0.2973,
+  "proximityWalk": 0,
+  "initiative": -0.0168,
+  "tempo": 0.1179,
+  "hand": -0.02,
+  "threat": 0.1309,
+  "deadWeight": 0.1012
+}

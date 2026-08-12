@@ -1,0 +1,21 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.local
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+.DS_Store
+design/rules/*.pdf
+rulebooks/
+dist-types/
+
+# Live state of a running lab: baseline, journal, heartbeat, log.
+weights/lab.json
+weights/lab.start.json
+weights/lab.heartbeat.json
+weights/*.journal.json
+weights/lab.log*
+weights/lab/

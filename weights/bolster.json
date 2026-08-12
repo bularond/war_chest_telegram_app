@@ -1,0 +1,9 @@
+{
+  "version": "eval@2-bolster",
+  "markers": 1,
+  "material": 0.35,
+  "reserve": 0.15,
+  "bolster": 0.2,
+  "proximity": 0,
+  "initiative": 0
+}

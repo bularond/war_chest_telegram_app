@@ -1,0 +1,37 @@
+{
+  "name": "war-chest-telegram",
+  "private": true,
+  "version": "0.1.0",
+  "description": "War Chest \u2014 Telegram Mini App",
+  "type": "module",
+  "workspaces": [
+    "packages/shared",
+    "packages/server",
+    "packages/client",
+    "packages/bots",
+    "packages/tooling"
+  ],
+  "scripts": {
+    "build": "npm run build -w @wc/shared && npm run build -w @wc/server && npm run build -w @wc/client",
+    "dev": "npm run dev -w @wc/server & npm run dev -w @wc/client",
+    "test": "npm run test -w @wc/shared && npm run test -w @wc/bots && npm run test -w @wc/tooling && npm run test -w @wc/server && npm run test -w @wc/client",
+    "smoke": "node scripts/smoke.mjs",
+    "fuzz": "npm run build -w @wc/shared && node scripts/fuzz.mjs",
+    "arena": "npm run build -w @wc/tooling && npm run arena -w @wc/tooling --",
+    "bench": "npm run build -w @wc/tooling && npm run bench -w @wc/tooling --",
+    "sprt": "npm run build -w @wc/tooling && npm run sprt -w @wc/tooling --",
+    "tune": "npm run build -w @wc/tooling && npm run tune -w @wc/tooling --",
+    "lab": "npm run build -w @wc/tooling && npm run lab -w @wc/tooling --",
+    "spsa": "npm run build -w @wc/tooling && npm run spsa -w @wc/tooling --",
+    "ladder": "npm run build -w @wc/tooling && npm run ladder -w @wc/tooling --",
+    "unit-value": "npm run build -w @wc/tooling && npm run unit-value -w @wc/tooling --",
+    "regress": "npm run build -w @wc/tooling && npm run regress -w @wc/tooling --",
+    "typecheck": "tsc -b packages/shared packages/server packages/client packages/bots packages/tooling"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

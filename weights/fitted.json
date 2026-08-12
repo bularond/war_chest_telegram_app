@@ -1,0 +1,15 @@
+{
+  "version": "fitted@heuristic-4961",
+  "markers": 1,
+  "material": 0.3485,
+  "scarcity": 1.962984218077475,
+  "reach": 0.15581061692969872,
+  "reserve": 0.4772,
+  "bolster": -0.0423,
+  "proximity": 0.1298,
+  "initiative": 0.0256,
+  "tempo": 0.0702,
+  "hand": -0.04,
+  "threat": 0.0778,
+  "deadWeight": 0.0819
+}
