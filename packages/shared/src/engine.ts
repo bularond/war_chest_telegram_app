@@ -1025,7 +1025,14 @@ function resolveAttack(state: GameState, attackerHex: HexId, targetHex: HexId, s
   const target = state.units[targetHex];
   if (!target) throw new Error('illegal attack');
 
-  log(state, seat, 'attack', { unit: attacker.unit, target: target.unit, hex: targetHex });
+  // `from` as well as `hex`: a screen showing the last move has to be able to
+  // say who swung, and a ranged tactic's attacker is nowhere near its victim.
+  log(state, seat, 'attack', {
+    unit: attacker.unit,
+    target: target.unit,
+    from: attackerHex,
+    hex: targetHex,
+  });
   const wasAdjacent = distance(fromId(attackerHex), fromId(targetHex)) === 1;
   // The Pikeman's card says "attacked by an adjacent unit", so ranged tactics
   // like the Archer's and the Crossbowman's do not set it off.
@@ -1182,7 +1189,7 @@ function applyTactic(state: GameState, seat: Seat, action: Extract<CoinAction, {
     case 'pushAlly': {
       if (!action.subject || !action.to) throw new Error('tactic needs an ally and a space');
       moveStack(state, action.subject, action.to);
-      log(state, seat, 'push', { to: action.to });
+      log(state, seat, 'push', { from: action.subject, to: action.to });
       moveStack(state, action.from, action.subject);
       afterManeuver(state, action.subject, seat, 'move');
       break;
@@ -1468,7 +1475,7 @@ function applyFollowUp(state: GameState, seat: Seat, action: FollowUpAction): vo
     }
     case 'followShove': {
       moveStack(state, action.from, action.to);
-      log(state, seat, 'shove', { to: action.to });
+      log(state, seat, 'shove', { from: action.from, to: action.to });
       break;
     }
     case 'followProclaim': {

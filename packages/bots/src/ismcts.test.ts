@@ -248,6 +248,44 @@ describe('the rollout policy', () => {
 });
 
 /**
+ * Noise in the rollout is a knob that has to be invisible at zero and audible
+ * above it. Both halves matter: at zero it must draw nothing from the rng, or
+ * every match already recorded stops being comparable with the next one — and
+ * the golden master above is what actually holds that. Above zero it has to
+ * change the game rather than merely cost time, which is what this checks.
+ */
+describe('noise in the rollout', () => {
+  const at = (rolloutNoise: number) => {
+    const state = game(5);
+    const walk = createRng(5);
+    for (let i = 0; i < 20 && state.phase !== 'finished'; i++) {
+      const seat = actingSeat(state);
+      applyAction(state, seat, HeuristicBot.chooseMove(publicStateFor(state, seat), { rng: walk, budget: {} }));
+    }
+    const view = publicStateFor(state, actingSeat(state));
+    return runSearch(view, { rng: createRng(77), budget: { iterations: 300 } }, { ...DEFAULT_SEARCH, rolloutNoise });
+  };
+
+  it('reads the position differently once it is switched on', () => {
+    // Not "picks a different move" — it may well pick the same one, and a test
+    // that demands otherwise is testing a coin flip. The value is what the
+    // rollout produced, so that is what has to move.
+    expect(at(0.3).value).not.toBe(at(0).value);
+  });
+
+  it('still plays a legal game with the knob wide open', () => {
+    const state = game(9);
+    const bot = createSearchBot({ iterations: 40, rolloutNoise: 0.5 }, 'noisy');
+    const rng = createRng(4);
+    for (let i = 0; i < 60 && state.phase !== 'finished'; i++) {
+      const seat = actingSeat(state);
+      // `applyAction` with its check on is the point: an illegal move throws.
+      applyAction(state, seat, bot.chooseMove(publicStateFor(state, seat), { rng, budget: {} }));
+    }
+  });
+});
+
+/**
  * A lock on what the search does, not on how it does it.
  *
  * The rollout and the descent were rewritten to run on one state instead of

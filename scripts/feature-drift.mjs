@@ -59,8 +59,19 @@ const means = new Map(FEATURES.map((f) => [f, depths.map(() => 0)]));
 const counts = depths.map(() => 0);
 /** Everything a feature said, so its spread and its silence can be read too. */
 const all = new Map(FEATURES.map((f) => [f, []]));
+/**
+ * The same, kept apart by position.
+ *
+ * A search compares leaves of *one* tree, so only the variation inside a
+ * position can change a move. A feature that varies a great deal between games
+ * and hardly at all within one is a constant added to every leaf — it shifts the
+ * whole evaluation and orders nothing. That is invisible in a pooled spread,
+ * which adds the two together and reports a healthy-looking number.
+ */
+const byPosition = new Map(FEATURES.map((f) => [f, []]));
 
 for (const seed of [3, 5, 7, 11, 13]) {
+  for (const f of FEATURES) byPosition.get(f).push([]);
   const view = publicStateFor(position(seed), actingSeat(position(seed)));
   const rng = createRng(seed * 31 + 7);
 
@@ -82,6 +93,8 @@ for (const seed of [3, 5, 7, 11, 13]) {
       FEATURES.forEach((name, fi) => {
         means.get(name)[di] += f[fi];
         all.get(name).push(f[fi]);
+        const perPosition = byPosition.get(name);
+        perPosition[perPosition.length - 1].push(f[fi]);
       });
       counts[di]++;
     }
@@ -114,6 +127,36 @@ for (const name of FEATURES) {
   // weight, so a null verdict on it says nothing about the idea behind it.
   const note = sd < 0.05 ? 'says almost nothing, anywhere' : silent > 0.7 ? 'silent in most positions' : '';
   console.log(`  ${name.padEnd(14)}${sd.toFixed(3).padEnd(10)}${(silent * 100).toFixed(0).padEnd(9)}% ${note}`);
+}
+
+const sd = (xs) => {
+  const m = xs.reduce((a, b) => a + b, 0) / xs.length;
+  return Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / xs.length);
+};
+
+console.log(`\n  ${'feature'.padEnd(14)}${'within'.padEnd(10)}${'between'.padEnd(10)}what a search can use`);
+console.log(`  ${'-'.repeat(62)}`);
+const inert = [];
+for (const name of FEATURES) {
+  const groups = byPosition.get(name).filter((xs) => xs.length > 0);
+  // Inside one position: what the search actually compares.
+  const within = groups.reduce((a, xs) => a + sd(xs), 0) / groups.length;
+  // Between positions: a number the whole tree shares, and so cannot order by.
+  const between = sd(groups.map((xs) => xs.reduce((a, b) => a + b, 0) / xs.length));
+  const useless = within < 0.02 || within < between / 4;
+  if (useless) inert.push(name);
+  console.log(
+    `  ${name.padEnd(14)}${within.toFixed(3).padEnd(10)}${between.toFixed(3).padEnd(10)}` +
+      (within < 0.02 ? 'barely moves inside a tree' : within < between / 4 ? 'mostly a constant per game' : ''),
+  );
+}
+if (inert.length > 0) {
+  console.log(
+    `\n  Nearly constant within a position: ${inert.join(', ')}.\n` +
+      '  A search orders leaves of one tree, so a feature that hardly varies there\n' +
+      '  shifts every leaf together and changes no move, whatever its weight and\n' +
+      '  however healthy its pooled spread looks.',
+  );
 }
 
 console.log(

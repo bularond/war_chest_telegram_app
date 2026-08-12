@@ -42,6 +42,7 @@ import {
   type Steps,
 } from './board-sense.js';
 import { pickLegal, type Bot, type BotContext } from './types.js';
+import { MEASURED_VALUE, MEASURED_VALUE_ALL } from './unit-worth.js';
 
 export interface HeuristicWeights {
   /** The chart's order: hit something first, take a location only if it wins. */
@@ -168,6 +169,26 @@ export function createHeuristicBot(
 }
 
 export const HeuristicBot: Bot = createHeuristicBot();
+
+/**
+ * Which drawer the heuristic would put each action in, lowest first.
+ *
+ * The heuristic's own choice throws this away — it keeps the best drawer and
+ * forgets the rest. The search wants the whole ordering: a move nobody has
+ * looked at is not worth the same as any other move nobody has looked at, and
+ * this is the only opinion available before the first rollout.
+ *
+ * Exposed so it can be measured before it is believed. A prior that ranks 30 of
+ * 40 moves equally cannot concentrate anything.
+ */
+export function rankActions(
+  view: GameView,
+  actions: readonly GameAction[],
+  weights: HeuristicWeights = DEFAULT_WEIGHTS,
+): number[] {
+  const sight = sightFor(view, weights);
+  return actions.map((action) => rankOf(sight, action));
+}
 
 // ---------------------------------------------------------------------------
 // Which drawer an action goes in
@@ -425,92 +446,6 @@ function maneuverRecency(view: GameView): Map<UnitId, number> {
   });
   return out;
 }
-
-/**
- * How often each unit was on the winning side, measured rather than judged.
- *
- * 2220 games of the search playing itself at 200 iterations a move, units dealt
- * at random, four a side — two runs pooled, the second played by a bot that had
- * changed since the first. They agree within their intervals (±2.9) everywhere
- * but the Mercenary, which moved nine points, so the loop that worried me —
- * the bot measures the units, the table changes the draft, the changed bot
- * measures again — settles in one turn. The pooled number is the better
- * estimate simply for resting on more games. A unit's number is confounded by the three it was
- * dealt alongside and the four it faced, so this ranks units under random
- * partners — the right first question, and not the last one.
- *
- * **It has to be measured under the player it is for.** The same count under the
- * heuristic gives a different order and twice the spread: the Knight leads at
- * 62.9% there and sits tenth at 47.5% here, the Royal Guard is last at 24.7%
- * there and fifth at 52.2% here. The heuristic cannot use the Royal Coin, so it
- * calls the Royal Guard weak; that is a fact about the heuristic. Strength is a
- * property of the player holding the unit.
- *
- * And it explains why the draft never mattered before: by coin count the average
- * is 49.8% for the four-coin units against 50.0% for the five-coin ones. The
- * rule the bot was using — take what the box prints most of — reads a number
- * that carries no information about strength.
- */
-const MEASURED_VALUE: Readonly<Partial<Record<UnitId, number>>> = {
-  lightCavalry: 0.598,
-  scout: 0.593,
-  cavalry: 0.573,
-  mercenary: 0.553,
-  royalGuard: 0.528,
-  pikeman: 0.516,
-  warriorPriest: 0.508,
-  crossbowman: 0.492,
-  knight: 0.483,
-  archer: 0.483,
-  marshal: 0.468,
-  lancer: 0.462,
-  ensign: 0.445,
-  berserker: 0.44,
-  swordsman: 0.435,
-  footman: 0.413,
-};
-
-/**
- * The same count over all 28 units, played with the three expansions out: 660
- * games, about 190 appearances each, so ±7 points on any one of them — noisier
- * than the base table and covering four times the units.
- *
- * It is a different game, not an extension of the same one. A pool of eight
- * drawn from 28 asks a unit to beat different company than a pool drawn from 16,
- * and the numbers say so: the Crossbowman is 49.2% in the base game and 44.5%
- * here, the Cavalry 57.3% and 51.8%. What holds across both is the Light Cavalry
- * on top and the Footman at the bottom.
- */
-const MEASURED_VALUE_ALL: Readonly<Partial<Record<UnitId, number>>> = {
-  lightCavalry: 0.7,
-  skirmisher: 0.606,
-  bannerman: 0.594,
-  mercenary: 0.586,
-  pikeman: 0.582,
-  herald: 0.544,
-  scout: 0.542,
-  earl: 0.538,
-  cavalry: 0.518,
-  warriorPriest: 0.513,
-  infiltrator: 0.51,
-  royalGuard: 0.5,
-  knight: 0.5,
-  siegeTower: 0.494,
-  warWagon: 0.492,
-  bishop: 0.484,
-  marshal: 0.469,
-  archer: 0.465,
-  ensign: 0.462,
-  lancer: 0.459,
-  trebuchet: 0.456,
-  berserker: 0.449,
-  crossbowman: 0.445,
-  assassin: 0.44,
-  sapper: 0.436,
-  saboteur: 0.424,
-  swordsman: 0.423,
-  footman: 0.39,
-};
 
 /**
  * Drafting is not in the chart — its AI is dealt a fixed list of seven — and it

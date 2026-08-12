@@ -92,6 +92,11 @@ describe('whether a plan means anything', () => {
     expect(ok([{ id: 'typo', set: { mateiral: 1 } as never }])[0]).toContain('"mateiral" is not a weight');
   });
 
+  it('knows the rollout noise knob, which is a knob and not a weight', () => {
+    expect(ok([{ id: 'noise', knobs: { rolloutNoise: 0.15 } }])).toEqual([]);
+    expect(ok([{ id: 'wrong', set: { rolloutNoise: 0.15 } as never }])[0]).toContain('is not a weight');
+  });
+
   it('catches a knob that does not exist', () => {
     expect(ok([{ id: 'typo', knobs: { explore: 1 } as never }])[0]).toContain('is not a search knob');
   });

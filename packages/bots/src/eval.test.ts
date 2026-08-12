@@ -270,6 +270,125 @@ describe('the base weights', () => {
   });
 });
 
+describe('material by measured worth', () => {
+  it('is level between two of the same unit', () => {
+    const state = duel('knight', 'knight');
+    expect(evaluate(state, 0, only({ worth: 1, material: 0 }))).toBe(0);
+  });
+
+  it('prefers the unit that wins more games, not the one the box prints fewer of', () => {
+    // The Light Cavalry tops the measured table and the Footman is last. Both
+    // are printed five to a box, so `scarcity` — which reads the box — calls
+    // this position dead level, and that is the whole reason this feature
+    // exists.
+    expect(UNITS.lightCavalry.coins).toBe(UNITS.footman.coins);
+    const state = duel('lightCavalry', 'footman');
+    expect(evaluate(state, 0, only({ scarcity: 1, material: 0 }))).toBe(0);
+    expect(evaluate(state, 0, only({ worth: 1, material: 0 }))).toBeGreaterThan(0);
+    expect(evaluate(state, 1, only({ worth: 1, material: 0 }))).toBeLessThan(0);
+  });
+
+  it('counts every coin under a stack, not the stack', () => {
+    const one = duel('lightCavalry', 'footman');
+    const many = duel('lightCavalry', 'footman');
+    many.units[HERE]!.coins = 3;
+    expect(evaluate(many, 0, only({ worth: 1, material: 0 }))).toBeGreaterThan(
+      evaluate(one, 0, only({ worth: 1, material: 0 })),
+    );
+  });
+});
+
+describe('coins left to drive the board', () => {
+  /** Empties both sides down to the board, so only what is added counts. */
+  const bare = (state: GameState) => {
+    for (const p of state.players) {
+      p.bag = [];
+      p.hand = [];
+      p.discard = [];
+      p.supply = {};
+    }
+  };
+
+  it('is level when both sides are equally supplied', () => {
+    const state = duel('swordsman', 'swordsman');
+    bare(state);
+    for (const p of state.players) p.bag = ['swordsman', 'swordsman'];
+    expect(evaluate(state, 0, only({ circulation: 1, material: 0 }))).toBe(0);
+  });
+
+  it('says nothing about a unit with coins to spare', () => {
+    // Two coins still going round is enough to move a stack when it is wanted,
+    // and the first version of this feature disagreed — it charged a fifth of a
+    // stack for a fully supplied unit, on both sides, and drowned the stacks
+    // that were genuinely stuck in that background.
+    const state = duel('swordsman', 'swordsman');
+    bare(state);
+    state.players[0]!.bag = ['swordsman', 'swordsman', 'swordsman'];
+    state.players[1]!.bag = ['swordsman', 'swordsman'];
+    expect(evaluate(state, 0, only({ circulation: 1, material: 0 }))).toBe(0);
+  });
+
+  it('charges half for a unit down to its last coin', () => {
+    const state = duel('swordsman', 'swordsman');
+    bare(state);
+    state.players[0]!.bag = ['swordsman', 'swordsman'];
+    state.players[1]!.bag = ['swordsman'];
+    const oneLeft = evaluate(state, 0, only({ circulation: 1, material: 0 }));
+    state.players[1]!.bag = [];
+    const noneLeft = evaluate(state, 0, only({ circulation: 1, material: 0 }));
+    expect(oneLeft).toBeGreaterThan(0);
+    expect(noneLeft).toBeGreaterThan(oneLeft);
+  });
+
+  it('marks down a board nothing is left to move', () => {
+    // Same coins on the table, same everything — except that one side has spent
+    // every Swordsman coin it will ever draw, so its Swordsman stands still for
+    // the rest of the game. `material` cannot see the difference at all.
+    const state = duel('swordsman', 'swordsman');
+    bare(state);
+    state.players[0]!.bag = ['swordsman', 'swordsman'];
+    expect(evaluate(state, 0, only({ material: 1 }))).toBe(0);
+    expect(evaluate(state, 0, only({ circulation: 1, material: 0 }))).toBeGreaterThan(0);
+    expect(evaluate(state, 1, only({ circulation: 1, material: 0 }))).toBeLessThan(0);
+  });
+
+  it('counts a coin wherever it can still come from', () => {
+    // Bag, hand, discard and supply all come round again; only the board and
+    // the box do not.
+    const state = duel('swordsman', 'swordsman');
+    bare(state);
+    state.players[0]!.discard = [{ coin: 'swordsman', faceUp: true }];
+    const viaDiscard = evaluate(state, 0, only({ circulation: 1, material: 0 }));
+    state.players[0]!.discard = [];
+    state.players[0]!.supply = { swordsman: 1 };
+    expect(evaluate(state, 0, only({ circulation: 1, material: 0 }))).toBeCloseTo(viaDiscard, 10);
+  });
+});
+
+describe('what has been traded away', () => {
+  it('says nothing before anything has died', () => {
+    const state = duel('knight', 'knight');
+    expect(evaluate(state, 0, only({ traded: 1, material: 0 }))).toBe(0);
+  });
+
+  it('reads an even swap of unequal coins as a gain', () => {
+    // One coin each, so `reserve` — which counts what is left — is level. What
+    // is not level is which coin each side is never getting back.
+    const state = duel('knight', 'knight');
+    state.players[0]!.removed = { footman: 1 };
+    state.players[1]!.removed = { lightCavalry: 1 };
+    expect(evaluate(state, 0, only({ traded: 1, material: 0 }))).toBeGreaterThan(0);
+    expect(evaluate(state, 1, only({ traded: 1, material: 0 }))).toBeLessThan(0);
+  });
+
+  it('is level when the same unit went both ways', () => {
+    const state = duel('knight', 'knight');
+    state.players[0]!.removed = { footman: 2 };
+    state.players[1]!.removed = { footman: 2 };
+    expect(evaluate(state, 0, only({ traded: 1, material: 0 }))).toBe(0);
+  });
+});
+
 describe('the feature vector', () => {
   // Two implementations of one formula: `evaluate` computes only what carries a
   // weight, `featureVector` computes everything. They will drift apart the first
@@ -295,6 +414,11 @@ describe('the feature vector', () => {
         state.units[hexes[i] as HexId]!.coins = 1 + (i % 3);
       }
       state.phase = 'play';
+      // Coins already out of the game, so `traded` is not identically zero in
+      // every position the identity is checked on — a coordinate that is always
+      // zero agrees with anything.
+      state.players[0]!.removed = { footman: 1 + (round % 3) };
+      state.players[1]!.removed = { lightCavalry: 1 + (round % 2) };
 
       // Built from `FEATURES` rather than listed by hand: test files are not
       // typechecked in this project, so a feature added later would silently be

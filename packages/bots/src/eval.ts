@@ -14,6 +14,7 @@
  */
 
 import { stepsFromAny, type Steps } from './board-sense.js';
+import { unitWorth } from './unit-worth.js';
 import {
   actingSeat,
   boardFor,
@@ -26,6 +27,7 @@ import {
   neighbors,
   toId,
   UNITS,
+  type CoinId,
   type GameState,
   type HexId,
   type Seat,
@@ -49,6 +51,51 @@ export interface EvalWeights {
    */
   readonly scarcity: number;
   readonly reach: number;
+  /**
+   * Material again, but each coin counted at what its unit is measured to be
+   * worth rather than at one.
+   *
+   * `scarcity` was the first attempt at this and it was null by construction:
+   * it reads `5 − coins in the box`, and the box count is *known* to carry no
+   * information about strength — four-coin units win 49.8% of their games and
+   * five-coin units 50.0%. Its zero says the box count is not a signal. It does
+   * not say a coin is a coin.
+   *
+   * The number that is a signal has existed since the draft was measured and
+   * has never been read here: 2220 games of the search playing itself, a spread
+   * of seventeen points from the Light Cavalry to the Footman. Trading a Light
+   * Cavalry coin for a Footman coin is currently scored as an even trade.
+   *
+   * Note what this can and cannot do. Which units each side drafted never
+   * changes during a game, so that part is a constant across the whole search
+   * tree and moves nothing. What varies — and what this reads — is which coins
+   * end up on the board and which are gone.
+   */
+  readonly worth: number;
+  /**
+   * How much of a side's board is stuck for want of its own coins.
+   *
+   * A unit on the board can only be maneuvered by spending a coin of that unit
+   * from hand, and a coin destroyed leaves the game for good — the rulebook
+   * puts it back in the box, not in the discard. So committing three of four
+   * Knight coins to the board leaves one coin to drive three Knights: the
+   * material is there and it barely moves.
+   *
+   * `deadWeight` asked the same question at its extreme — a coin with nowhere
+   * at all to go — and fired in one position in a hundred, which is why its null
+   * meant nothing. This is the graded form: every position has an answer to
+   * "what share of my board can I still drive". Making `deadWeight` graded is
+   * exactly the operation that turned it into `idleHand` and +43 Elo.
+   */
+  readonly circulation: number;
+  /**
+   * Who lost the better coins, over the whole game so far.
+   *
+   * `reserve` counts what is left to come and so already knows *how many* coins
+   * each side has lost. It has no opinion on which ones. A destroyed coin never
+   * returns, so this is the one balance in the game that only ever grows.
+   */
+  readonly traded: number;
   /** Coins still to come: bag, hand, discard and supply. */
   readonly reserve: number;
   /** Coins stacked on top of units: staying power against concentrated risk. */
@@ -116,6 +163,12 @@ export const BASE_WEIGHTS: EvalWeights = {
   // Untried as of eval@3: material has always been coin counting.
   scarcity: 0,
   reach: 0,
+  // The three that ask whether a coin is a coin — by what its unit is worth, by
+  // whether anything is left to drive it, and by what has been traded away.
+  // Untried as of eval@5.
+  worth: 0,
+  circulation: 0,
+  traded: 0,
   // Zero is not a placeholder, it is a verdict. `bolster` was tried and did not
   // pay for itself; `initiative` has not yet been shown to. A feature that has
   // not won an experiment weighs nothing, whatever it looks like it should do.
@@ -255,6 +308,27 @@ export function evaluate(state: GameState, seat: Seat, weights: EvalWeights = BA
     score -= weights.idleHand * (idleFraction(state, me.team) - idleFraction(state, foeTeam));
   }
 
+  if ((weights.worth ?? 0) !== 0) {
+    // Divided by the plain coin count, exactly as `material` is, so the two sit
+    // on one scale and a fit can tell them apart.
+    let balance = 0;
+    for (const stack of Object.values(state.units)) {
+      balance += (stack.team === me.team ? 1 : -1) * stack.coins * unitWorth(stack.unit);
+    }
+    const onBoardCoins = coinsOnBoard(state);
+    score += weights.worth * (onBoardCoins === 0 ? 0 : balance / onBoardCoins);
+  }
+
+  if ((weights.circulation ?? 0) !== 0) {
+    // Negative, like every other liability here: a positive weight should mean
+    // "a board I cannot drive is bad".
+    score -= weights.circulation * (frozenFraction(state, me.team) - frozenFraction(state, foeTeam));
+  }
+
+  if ((weights.traded ?? 0) !== 0) {
+    score += weights.traded * tradeBalance(state, me.team);
+  }
+
   if ((weights.deadWeight ?? 0) !== 0) {
     // Negative: dead weight is a liability, and the weight itself is expected
     // to come out positive if the feature is worth anything at all.
@@ -347,6 +421,91 @@ function deadFraction(state: GameState, team: Team): number {
 }
 
 /** The share of a hand whose units are not on the board. */
+/**
+ * Coins of each unit this player can still draw: bag, hand, discard, supply.
+ *
+ * Counted once per player rather than once per stack. The bag and the discard
+ * run to twenty coins apiece late in a game, and the evaluation is called once
+ * per search iteration — a scan per stack would be a scan per coin per stack.
+ */
+function circulationOf(p: GameState['players'][number]): Map<UnitId, number> {
+  const out = new Map<UnitId, number>();
+  const add = (coin: CoinId) => {
+    // The Royal Coin and a Nightfall decoy drive nothing of their own, so they
+    // are not circulation for any unit.
+    if (!isUnitId(coin)) return;
+    out.set(coin, (out.get(coin) ?? 0) + 1);
+  };
+  for (const coin of p.bag) add(coin);
+  for (const coin of p.hand) add(coin);
+  for (const entry of p.discard) add(entry.coin);
+  for (const [unit, n] of Object.entries(p.supply)) {
+    if (n) out.set(unit as UnitId, (out.get(unit as UnitId) ?? 0) + n);
+  }
+  return out;
+}
+
+/**
+ * The share of a side's board coins that has nothing left to drive it.
+ *
+ * A stack counts fully when no coin of its unit is left anywhere, half when one
+ * is, and not at all from two upwards — a unit with two coins still going round
+ * can be moved when it is wanted, and one is a coin that comes round rarely.
+ *
+ * **The first version of this was `1 / (1 + coins left)` and it measured almost
+ * nothing.** A census of 18 000 stacks says why: 4.6% have no coin left and 8.7%
+ * have one, but 68% have three or four, and those all scored 0.20 to 0.25 under
+ * that formula. Two thirds of the board was a constant background, both sides
+ * carried the same amount of it, and the difference between the sides — the only
+ * thing an evaluation reads — came out at 0.021, which is the threshold below
+ * which a match measures nothing. The shape here is zero from two coins up, so
+ * what is left is the 13% that is actually stuck.
+ *
+ * That is still a feature which is silent in most positions, and silence is what
+ * made `deadWeight`'s null verdict worthless. The difference is the count: at
+ * least one frozen stack stands on the board in 15% of positions, against
+ * `deadWeight`'s 2%.
+ */
+function frozenFraction(state: GameState, team: Team): number {
+  const seen = new Map<Seat, Map<UnitId, number>>();
+  let boardCoins = 0;
+  let frozen = 0;
+  for (const stack of Object.values(state.units)) {
+    if (stack.team !== team) continue;
+    const owner = state.players[stack.seat];
+    if (!owner) continue;
+    let counts = seen.get(stack.seat);
+    if (!counts) {
+      counts = circulationOf(owner);
+      seen.set(stack.seat, counts);
+    }
+    boardCoins += stack.coins;
+    frozen += stack.coins * Math.max(0, 1 - (counts.get(stack.unit) ?? 0) / 2);
+  }
+  return boardCoins === 0 ? 0 : frozen / boardCoins;
+}
+
+/**
+ * The balance of what has been destroyed, by what it was worth.
+ *
+ * Positive is good for `team`: it has lost the cheaper coins. Zero before
+ * anything has died, and it never goes back to zero afterwards — coins removed
+ * from the board leave the game.
+ */
+function tradeBalance(state: GameState, team: Team): number {
+  let balance = 0;
+  let count = 0;
+  for (const p of state.players) {
+    const sign = p.team === team ? -1 : 1;
+    for (const [unit, n] of Object.entries(p.removed)) {
+      if (!n) continue;
+      count += n;
+      balance += sign * n * unitWorth(unit as UnitId);
+    }
+  }
+  return count === 0 ? 0 : balance / count;
+}
+
 function idleFraction(state: GameState, team: Team): number {
   const present = new Set<UnitId>();
   for (const stack of Object.values(state.units)) {
@@ -398,6 +557,7 @@ export function featureVector(state: GameState, seat: Seat): number[] {
   let scarcity = 0;
   let reach = 0;
   let bolster = 0;
+  let worth = 0;
   for (const stack of Object.values(state.units)) {
     const value = typeValue(stack.unit);
     coins += stack.coins;
@@ -405,6 +565,7 @@ export function featureVector(state: GameState, seat: Seat): number[] {
     scarcity += sign(stack.team) * stack.coins * value.scarcity;
     reach += sign(stack.team) * stack.coins * value.reach;
     bolster += sign(stack.team) * (stack.coins - 1);
+    worth += sign(stack.team) * stack.coins * unitWorth(stack.unit);
   }
   const stacked = Object.values(state.units).reduce((n, s) => n + s.coins - 1, 0);
 
@@ -439,6 +600,9 @@ export function featureVector(state: GameState, seat: Seat): number[] {
     threatBalance(state, me.team, foeTeam),
     -(deadFraction(state, me.team) - deadFraction(state, foeTeam)),
     -(idleFraction(state, me.team) - idleFraction(state, foeTeam)),
+    coins === 0 ? 0 : worth / coins,
+    -(frozenFraction(state, me.team) - frozenFraction(state, foeTeam)),
+    tradeBalance(state, me.team),
   ];
 }
 
@@ -457,6 +621,12 @@ export const FEATURES: readonly (keyof EvalWeights)[] = [
   'threat',
   'deadWeight',
   'idleHand',
+  // Appended rather than slotted in beside `material`: the order is the layout
+  // of every fitted vector already on disk, and a new coordinate in the middle
+  // would silently reinterpret all of them.
+  'worth',
+  'circulation',
+  'traded',
 ];
 
 /**
@@ -490,6 +660,9 @@ export function weightsFromFit(fit: readonly number[], version: string): EvalWei
     threat: at('threat'),
     deadWeight: at('deadWeight'),
     idleHand: at('idleHand'),
+    worth: at('worth'),
+    circulation: at('circulation'),
+    traded: at('traded'),
   };
 }
 

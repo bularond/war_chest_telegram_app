@@ -23,6 +23,7 @@
     "spsa": "node dist/spsa-cli.js",
     "ladder": "node dist/ladder-cli.js",
     "unit-value": "node dist/unit-value-cli.js",
+    "draft-fit": "node dist/draft-fit-cli.js",
     "regress": "node dist/regress-cli.js"
   },
   "dependencies": {

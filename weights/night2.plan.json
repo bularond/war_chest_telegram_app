@@ -1,0 +1,61 @@
+{
+  "note": "Two new evaluation features and the unfinished rollout questions, on twelve cores.\n\nThe features come from one observation: the evaluation counts coins, and a coin is not a coin. The first attempt at saying so — `scarcity` — reads `5 − coins in the box`, and the box count is known to carry no information about strength (four-coin units win 49.8%, five-coin 50.0%). Its zero was guaranteed by construction. The number that does carry information has existed since the draft was measured, over 2220 games of the search playing itself, and has never been read by the evaluation.\n\nBoth were put through `scripts/feature-drift.mjs` before being queued, and the script grew a column for it. `worth` reads in 91% of positions with no drift by descent depth. `traded` varies more inside one position (0.265) than between games (0.160), which is what settles the objection that a per-unit number might be a constant the whole tree shares. A third feature, `circulation`, was written and is *not* here: it moves 0.021 inside a position, which is the threshold, and a match on a feature that barely moves measures nothing. That is the `deadWeight` mistake and it is not being repeated.\n\nThe rollout questions are the ones the five-core run did not finish. `noise-015` had reached 272 games at 51.8% with the log-likelihood ratio flat at −0.15 — no verdict, and it restarts here on its own block of seeds.",
+  "proposals": [
+    {
+      "id": "worth-030",
+      "note": "Material weighted by measured unit strength, at 0.30. A coin of the Light Cavalry and a coin of the Footman are nineteen points of win rate apart and the evaluation currently scores trading one for the other as even. Weight chosen against the instrument rather than by taste: `worth` moves 0.096 inside a position against `material`'s 0.139, so parity of influence would be about 1.0 — this is a first probe at a third of that, because a new feature that has to be large to help is usually not helping.",
+      "set": {
+        "worth": 0.3
+      },
+      "draftMode": "draft"
+    },
+    {
+      "id": "traded-012",
+      "note": "Who lost the better coins, at 0.12. `reserve` already counts how many coins each side will never see again; it has no opinion on which ones, and a destroyed coin is gone for good — the rulebook puts it back in the box, not in the discard. Scaled against `idleHand`, the one accepted feature: that moves 0.390 inside a position at a weight of 0.06, this moves 0.265, so parity is about 0.09 and this is a shade above it.",
+      "set": {
+        "traded": 0.12
+      },
+      "draftMode": "draft"
+    },
+    {
+      "id": "noise-015",
+      "note": "Fifteen percent of rollout plies played at random. The rollout is nearly deterministic — the heuristic keeps a quarter of the legal moves and draws inside that — so rollouts from one leaf play much the same game and their mean converges on the value of a line rather than of a position. Iterations do not remove a bias, they measure it more precisely. Restarted from scratch: the five-core run reached 272 games without a verdict.",
+      "knobs": {
+        "rolloutNoise": 0.15
+      },
+      "draftMode": "draft"
+    },
+    {
+      "id": "quick-rollouts",
+      "note": "The cheap heuristic in the rollout: same kind of move, then at random inside it, skipping the distance sweeps the priority lists need. Worse plies, several times more of them. The flag has existed since the arena was written and has never been played — the rollout axis was tuned by depth alone, and depth turned out to be the most sensitive knob in the search.",
+      "knobs": {
+        "quickRollouts": true
+      },
+      "draftMode": "draft"
+    },
+    {
+      "id": "worth-010",
+      "note": "The second point, and it moved down rather than up. The plan said 0.60 regardless of the first verdict, on the rule that one point is not a curve — but that rule was bought on first-play-urgency, where the sign of the working range was unknown. Here it is not: the evaluation is baseline at 0 and scored 46.5% at 0.30, so 0.60 extrapolates further along the direction that already failed and would buy nothing but twenty-five minutes. What is still open is whether a light touch helps, which is what this asks. If it also rejects, the feature is closed on two points either side of the failure rather than on one.",
+      "set": {
+        "worth": 0.1
+      },
+      "draftMode": "draft"
+    },
+    {
+      "id": "traded-neg012",
+      "note": "The same weight with the sign turned over, rather than the same sign made larger. 0.12 scored 44.8%, so 0.30 walks further along a direction that has already failed and can only confirm it more expensively. The mirror asks a question that is still open: is this feature noise, or is it backwards? Noise comes back at fifty either way. A win here would mean the balance of destroyed coins is reading something other than what it was built to read — most likely aggression, since the side that trades coins at all is the side that has been fighting — and that is worth knowing whichever way it falls.",
+      "set": {
+        "traded": -0.12
+      },
+      "draftMode": "draft"
+    },
+    {
+      "id": "noise-035",
+      "note": "Rollout noise, hard. Tells 'the knob is inert' from 'the knob is harmful', which a single small point cannot.",
+      "knobs": {
+        "rolloutNoise": 0.35
+      },
+      "draftMode": "draft"
+    }
+  ]
+}

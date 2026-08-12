@@ -200,7 +200,7 @@ describe('draft', () => {
     });
     pushView(game, 0);
 
-    const strikes = () => screen.queryAllByText('Вычеркнуть').map((el) => el.closest('button')!);
+    const strikes = () => screen.queryAllByText('Убрать').map((el) => el.closest('button')!);
     const pool = () => document.querySelectorAll('.screen .scroll > div:first-child > div').length;
 
     // Your ban: every card in the pool offers the button.
@@ -789,6 +789,28 @@ describe('table', () => {
     pushView(game, 0);
     expect(document.querySelector('.toast')!.textContent).toContain('Марина С');
     expect(board.querySelectorAll('polygon.hex-last')).toHaveLength(0);
+  });
+
+  it('rings both ends of an attack, not just where it landed', () => {
+    // Who swung matters as much as what was hit — and a ranged tactic's
+    // attacker stands nowhere near its victim.
+    const game = duel(
+      ['knight', 'archer', 'scout', 'cavalry'],
+      ['swordsman', 'footman', 'ensign', 'pikeman'],
+    );
+    game.turn = 1;
+    // Not the Knight: it can only be attacked by a bolstered unit.
+    game.units['5,2'] = { unit: 'scout', team: 0, seat: 0, coins: 1 };
+    game.units['5,1'] = { unit: 'swordsman', team: 1, seat: 1, coins: 1 };
+    game.players[1]!.hand = ['swordsman', 'swordsman', 'swordsman'];
+
+    render(<App />);
+    applyAction(game, 1, legalActions(game, 1).find((a) => a.type === 'attack')!);
+    pushView(game, 0);
+
+    const board = screen.getByLabelText('Поле');
+    // Where the blow landed and where it came from.
+    expect(board.querySelectorAll('polygon.hex-last')).toHaveLength(2);
   });
 
   it('shows the log in Russian', () => {

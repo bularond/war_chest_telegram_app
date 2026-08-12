@@ -1,0 +1,37 @@
+{
+  "note": "The coordinate descent is finished: every weight and every knob has been stepped both ways off this baseline and every step came back reject or inconclusive. So this plan does not move numbers — it asks about the one part of the search that was never questioned, only measured through: how the rollout plays.\n\nWhy the rollout and not something else. `scripts/search-shape.mjs` says the root holds 19 moves and a medium budget buys 1500 iterations, so there is no width crisis and no room for the first-play-urgency family (five attempts, none ever positive). It also says the heuristic's best drawer holds 26% of the moves and the search's own answer lands in it 38% of the time — better than chance and not much better, so a prior built on the heuristic would point away from the answer more often than towards it. That closes the two obvious search ideas without a match.\n\nWhat stays open is the leaf. The depth sweep found a sharp peak — 0 plies scored 5.9%, 6 plies 39%, 18 plies 49.7%, 24 plies 42.9%, and 12 stands — which says leaf values depend heavily on how those twelve plies are played, and the policy that plays them has never been varied at all. Two ways to vary it: play worse and faster, or play the same and less repeatably.\n\nПодрезано на ходу: `noise-006` снят, чтобы ядра раньше освободились под три признака оценки (`worth`, `circulation`, `traded`), которые уже написаны и ждут прибора. Из трёх точек шума самая малоинформативная — самая мелкая: если 0,15 ничего не дал, 0,06 не даст тем более, а 0,35 всё ещё различает «ручка инертна» и «ручка вредна».",
+  "proposals": [
+    {
+      "id": "aa-rollout-code",
+      "note": "A/A over the new code path. `rolloutNoise` at zero must draw nothing from the rng and change nothing at all — the golden master holds that in a unit test, but the harness is a different thing from the search, and a knob that has just been threaded through four files is worth half an hour of nothing happening. `checkEvery` cannot affect a move; anything but a coin flip here means the harness is broken and every verdict below is worthless.",
+      "knobs": {
+        "checkEvery": 16
+      },
+      "draftMode": "draft"
+    },
+    {
+      "id": "noise-015",
+      "note": "Fifteen percent of rollout plies played at random instead of by the heuristic. The rollout is nearly deterministic — the heuristic keeps a quarter of the legal moves and draws inside that — so rollouts from the same leaf play much the same game, and their mean converges on the value of one line rather than of the position. That is a bias, and iterations do not remove a bias, they only measure it more precisely. Noise buys decorrelation with move quality.",
+      "knobs": {
+        "rolloutNoise": 0.15
+      },
+      "draftMode": "draft"
+    },
+    {
+      "id": "quick-rollouts",
+      "note": "The cheap heuristic in the rollout: same choice of *kind* of move, then at random inside it, skipping the distance sweeps the priority lists need. Worse plies, several times more of them per second. The flag has existed in `bot-spec.ts` since the arena was written and has never once been played — the whole rollout axis was tuned by depth alone.",
+      "knobs": {
+        "quickRollouts": true
+      },
+      "draftMode": "draft"
+    },
+    {
+      "id": "noise-035",
+      "note": "The same idea, hard. If 0.15 helps, the question is immediately whether more helps more; if 0.15 does nothing, this says whether the knob is inert or merely small. Running both regardless of the first verdict, because a single point on a curve is not a curve — that is the mistake first-play-urgency cost three times.",
+      "knobs": {
+        "rolloutNoise": 0.35
+      },
+      "draftMode": "draft"
+    }
+  ]
+}

@@ -18,7 +18,16 @@ import {
 
 /** The parts of the search settings that are data rather than behaviour. */
 export type SearchKnobs = Partial<
-  Pick<SearchSettings, 'iterations' | 'rolloutDepth' | 'exploration' | 'checkEvery' | 'firstPlay' | 'levelLeaves'>
+  Pick<
+    SearchSettings,
+    | 'iterations'
+    | 'rolloutDepth'
+    | 'exploration'
+    | 'checkEvery'
+    | 'firstPlay'
+    | 'levelLeaves'
+    | 'rolloutNoise'
+  >
 > & {
   /**
    * Roll out with the cheap heuristic: it picks the kind of move the same way

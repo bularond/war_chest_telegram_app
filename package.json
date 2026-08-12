@@ -26,6 +26,7 @@
     "spsa": "npm run build -w @wc/tooling && npm run spsa -w @wc/tooling --",
     "ladder": "npm run build -w @wc/tooling && npm run ladder -w @wc/tooling --",
     "unit-value": "npm run build -w @wc/tooling && npm run unit-value -w @wc/tooling --",
+    "draft-fit": "npm run build -w @wc/tooling && npm run draft-fit -w @wc/tooling --",
     "regress": "npm run build -w @wc/tooling && npm run regress -w @wc/tooling --",
     "typecheck": "tsc -b packages/shared packages/server packages/client packages/bots packages/tooling"
   },

@@ -34,6 +34,7 @@ import {
   isTerminal,
   legalMoves,
   markersRemaining,
+  nextFloat,
   nextInt,
   sampleDeterminization,
   type GameAction,
@@ -58,11 +59,14 @@ export interface SearchSettings {
    * it. `Infinity` means "try every move once before revisiting any", which is
    * what this always did.
    *
-   * That default is expensive here. Branching runs 30 to 80, so at a medium
-   * budget the search spends most of its iterations giving each move its first
-   * look and has little left to go deeper. A finite value lets the search stop
-   * widening and start reading — the trick every wide-branching MCTS ends up
-   * with, under the name "first play urgency".
+   * That default was assumed expensive here, on a branching factor of 30 to 80
+   * taken from nothing in particular. Measured, it is **19** at the root, and a
+   * medium budget buys 1500 iterations — 78 per legal move. There is no width
+   * crisis to solve, which is the answer to why five attempts at first play
+   * urgency ranged from "no effect" to −517 Elo and none ever helped: the
+   * technique is for a search that is starving for depth, and this one is not.
+   * Kept at infinity, and kept in the file with its number, so it is not
+   * rediscovered a sixth time. See `scripts/search-shape.mjs`.
    *
    * It is compared against the best *observed value* among the moves already in
    * the tree, on the same [-1, 1] scale: 1 is close to the old behaviour, 0 is
@@ -93,6 +97,22 @@ export interface SearchSettings {
   /** The policy that plays the rollout out. Cheap beats clever, up to a point. */
   readonly rolloutBot: Bot;
   /**
+   * How often the rollout ignores its policy and plays at random instead.
+   *
+   * The rollout is nearly deterministic: the heuristic keeps its best drawer —
+   * a quarter of the legal moves — and draws inside it. So two rollouts from
+   * the same leaf tend to play the same game, and their average converges to
+   * something that is not the value of the position but the value of *that one
+   * line*. More iterations do not fix a bias; they only measure it more
+   * precisely.
+   *
+   * Noise trades away move quality to break that correlation. Which side of the
+   * trade wins is not guessable — the depth sweep found a sharp peak at twelve
+   * plies, so leaf values are clearly sensitive to how the rollout plays, and
+   * that cuts both ways.
+   */
+  readonly rolloutNoise: number;
+  /**
    * Who drafts. The search has no rollout worth running before the bags exist,
    * so the opening is somebody else's problem — but *whose* is a setting, not a
    * constant, because the draft has never been measured and the app deals one
@@ -119,6 +139,7 @@ export const DEFAULT_SEARCH: SearchSettings = {
   levelLeaves: false,
   weights: BASE_WEIGHTS,
   rolloutBot: HeuristicBot,
+  rolloutNoise: 0,
   draftBot: HeuristicBot,
   checkEvery: 32,
 };
@@ -299,7 +320,7 @@ function iterate(root: Node, view: GameView, rng: RngState, config: SearchSettin
   }
 
   // ── play on, then score what we ended up with ────────────────────────────
-  rollout(state, rng, config.rolloutDepth, config.rolloutBot);
+  rollout(state, rng, config.rolloutDepth, config.rolloutBot, config.rolloutNoise);
   if (config.levelLeaves) levelOff(state, rng, view, config.rolloutBot);
   const score = evaluate(state, view.you, config.weights);
 
@@ -362,12 +383,18 @@ function selectByUcb(edges: readonly Edge[], exploration: number, rng: RngState)
  * Play on with the heuristic, but not to the end: a War Chest game runs for
  * hundreds of plies, and a full rollout would be both slow and mostly noise.
  */
-function rollout(state: GameState, rng: RngState, depth: number, policy: Bot): void {
+function rollout(state: GameState, rng: RngState, depth: number, policy: Bot, noise: number): void {
   for (let i = 0; i < depth && !isTerminal(state); i++) {
     const seat = actingSeat(state);
     const legal = legalMoves(state);
     if (legal.length === 0) break;
-    const action = policy.chooseMove(searchView(state, seat, legal), { rng, budget: {} });
+    // No noise means no draw. A search with the knob at zero has to play the
+    // game it played before it existed, down to the visit — otherwise every
+    // reproducible match becomes incomparable with every one already recorded.
+    const action =
+      noise > 0 && nextFloat(rng) < noise
+        ? (legal[nextInt(rng, legal.length)] as GameAction)
+        : policy.chooseMove(searchView(state, seat, legal), { rng, budget: {} });
     applyAction(state, seat, action, NO_CHECK);
   }
 }

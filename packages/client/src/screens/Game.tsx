@@ -276,7 +276,7 @@ function Draft({ view }: { view: GameView }) {
       <div className="muted" style={{ marginBottom: 12 }}>
         {yourTurn
           ? banning
-            ? 'Нажмите на отряд, чтобы прочитать карту, затем вычеркните его'
+            ? 'Нажмите на отряд, чтобы прочитать карту, затем уберите его'
             : 'Нажмите на отряд, чтобы прочитать карту, затем возьмите его'
           : `${banning ? 'Вычёркивает' : 'Выбирает'} ${waitingFor}`}
       </div>
@@ -287,16 +287,7 @@ function Draft({ view }: { view: GameView }) {
           widest word unless told otherwise, and one long unit name was enough
           to push the whole screen sideways.
         */}
-        <div
-          style={{
-            display: 'grid',
-            // Three across while banning: "Вычеркнуть" is twice the word
-            // "Взять" and does not fit a quarter of a phone. The two phases
-            // never share a screen, so the cards changing size costs nothing.
-            gridTemplateColumns: `repeat(${banning ? 3 : 4}, minmax(0, 1fr))`,
-            gap: 10,
-          }}
-        >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
           {view.draftPool.map((unit) => {
             const action = view.legal.find(
               (a) => (a.type === 'draft' || a.type === 'ban') && a.unit === unit,
@@ -378,7 +369,7 @@ function Draft({ view }: { view: GameView }) {
                       : undefined
                   }
                 >
-                  {banning ? 'Вычеркнуть' : 'Взять'}
+                  {banning ? 'Убрать' : 'Взять'}
                 </button>
               </div>
             );
@@ -387,7 +378,7 @@ function Draft({ view }: { view: GameView }) {
 
         {view.banned.length > 0 ? (
           <div style={{ marginTop: 18 }}>
-            <div className="kicker">Вычеркнуто</div>
+            <div className="kicker">Убрано из драфта</div>
             <div className="row" style={{ gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
               {view.banned.map((u) => (
                 <button
