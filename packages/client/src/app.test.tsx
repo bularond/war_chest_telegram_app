@@ -729,6 +729,38 @@ describe('table', () => {
     expect(modal.textContent).toContain('Снять яд');
   });
 
+  it('marks where the opponent just played, and says the moves that show nothing', () => {
+    const game = duel(
+      ['knight', 'archer', 'scout', 'cavalry'],
+      ['swordsman', 'footman', 'ensign', 'pikeman'],
+    );
+    game.turn = 1;
+    game.units['5,1'] = { unit: 'swordsman', team: 1, seat: 1, coins: 1 };
+    game.players[0]!.hand = ['knight', 'knight', 'knight'];
+    game.players[1]!.hand = ['swordsman', 'swordsman', 'swordsman'];
+
+    render(<App />);
+
+    // A move on the board: the hexes it touched are ringed on your screen.
+    applyAction(game, 1, legalActions(game, 1).find((a) => a.type === 'move')!);
+    pushView(game, 0);
+
+    const board = screen.getByLabelText('Поле');
+    expect(board.querySelectorAll('polygon.hex-last')).toHaveLength(2); // from, to
+    expect(document.querySelector('.toast')).toBeNull();
+
+    // Your own move is not news: playing clears the mark.
+    applyAction(game, 0, legalActions(game, 0).find((a) => a.type === 'pass')!);
+    pushView(game, 0);
+    expect(board.querySelectorAll('polygon.hex-last')).toHaveLength(0);
+
+    // And a turn that leaves nothing to point at is said in words instead.
+    applyAction(game, 1, legalActions(game, 1).find((a) => a.type === 'recruit')!);
+    pushView(game, 0);
+    expect(document.querySelector('.toast')!.textContent).toContain('Марина С');
+    expect(board.querySelectorAll('polygon.hex-last')).toHaveLength(0);
+  });
+
   it('shows the log in Russian', () => {
     const game = playedGame();
     game.turn = 0;

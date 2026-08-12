@@ -1,6 +1,14 @@
 /** Turning structured log entries into Russian sentences, with cases. */
 
-import { DECREES, UNITS, type DecreeId, type GameView, type LogEntry, type UnitId } from '@wc/shared';
+import {
+  DECREES,
+  UNITS,
+  type DecreeId,
+  type GameView,
+  type HexId,
+  type LogEntry,
+  type UnitId,
+} from '@wc/shared';
 
 /** Accusative of each unit name, so "вы двинули конницу" reads right. */
 const ACCUSATIVE: Record<UnitId, string> = {
@@ -138,4 +146,71 @@ export function formatLog(entry: LogEntry, view: GameView): string {
 export function logColor(entry: LogEntry, view: GameView): string {
   if (entry.kind === 'roundStart' || entry.kind === 'stalemate') return 'var(--color-neutral-500)';
   return entry.seat === view.you ? 'var(--side-you)' : 'var(--side-foe)';
+}
+
+/**
+ * Params that name a place on the board. Everything else in a log entry is a
+ * unit, a decree or a number.
+ */
+const HEX_PARAMS = ['hex', 'from', 'to', 'at'] as const;
+
+/**
+ * Moves that happen entirely off the board, and so leave nothing to point at.
+ * Named one by one rather than inferred from "has no hex": a tactic logs a
+ * line of its own before the move it performs, and announcing that as news of
+ * its own would say the same turn twice.
+ */
+const OFF_BOARD = new Set([
+  'recruit',
+  'claimInitiative',
+  'pass',
+  'proclaim',
+  'unpoison',
+  'returnDecoy',
+  'reinforce',
+  'spy',
+  'burn',
+  'lift',
+]);
+
+export interface LastMove {
+  /** Where it happened, if it happened anywhere. */
+  readonly hexes: readonly HexId[];
+  /** The part of it that touched no hex, in words. */
+  readonly text: string | null;
+  /** How much of the log it covers — changes when the opponent moves again. */
+  readonly through: number;
+}
+
+/**
+ * What the opponent has done since you last acted, read back out of the log.
+ *
+ * Off your own screen a move is easy to miss: a coin appears somewhere, or
+ * nothing visibly happens at all because it was a recruit. This walks back
+ * from the end over everything that was not yours, and gathers both the hexes
+ * it touched and the words for what happened away from the board.
+ *
+ * A round begins with an entry belonging to nobody, and that stops the walk:
+ * what happened last round is history, not news.
+ */
+export function lastOpponentMove(view: GameView): LastMove | null {
+  const hexes: HexId[] = [];
+  const lines: string[] = [];
+  let any = false;
+  for (let i = view.log.length - 1; i >= 0; i--) {
+    const entry = view.log[i]!;
+    if (entry.seat === view.you) break;
+    if (entry.kind === 'roundStart' || entry.kind === 'stalemate') break;
+    any = true;
+    for (const key of HEX_PARAMS) {
+      const value = entry.params[key];
+      // Hex ids are "column,row"; nothing else in a log entry looks like that.
+      if (typeof value === 'string' && /^\d+,\d+$/.test(value) && !hexes.includes(value)) {
+        hexes.push(value);
+      }
+    }
+    if (OFF_BOARD.has(entry.kind)) lines.unshift(formatLog(entry, view));
+  }
+  if (!any) return null;
+  return { hexes, text: lines.length > 0 ? lines.join('. ') : null, through: view.log.length };
 }

@@ -28,7 +28,7 @@ import { Avatar } from '../ui/Avatar.js';
 import { Coin, Modal, Sheet } from '../ui/bits.js';
 import { Board } from './Board.js';
 import { UnitCardModal } from './Info.js';
-import { coins, formatLog, logColor } from './log.js';
+import { coins, formatLog, lastOpponentMove, logColor } from './log.js';
 
 /**
  * The hexes an action names, in the order a player taps them: the unit that
@@ -463,6 +463,23 @@ function Table({ view }: { view: GameView }) {
 
   const canSkip = view.legal.some((a) => a.type === 'skip');
 
+  /*
+   * The opponent's last turn. On the board it is a ring round the hexes they
+   * touched, and it stays until you play; a recruit or a claim of initiative
+   * shows nothing there at all, so that one is said in words and fades.
+   */
+  const lastMove = useMemo(() => lastOpponentMove(view), [view.log.length, view.you]);
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!lastMove?.text) {
+      setToast(null);
+      return;
+    }
+    setToast(lastMove.text);
+    const timer = setTimeout(() => setToast(null), 6000);
+    return () => clearTimeout(timer);
+  }, [lastMove?.text, lastMove?.through]);
+
   /** The whole of the answer the pending step is waiting for. */
   function followUpTargeting(): Targeting | null {
     if (!step) return null;
@@ -566,6 +583,14 @@ function Table({ view }: { view: GameView }) {
   return (
     <div className="screen screen--game">
       <div className="game">
+        {/* A move that left no mark on the board, said out loud. Tapping it
+            dismisses it; so does the opponent's next turn. */}
+        {toast ? (
+          <button className="toast" onClick={() => setToast(null)}>
+            <span className="toast__dot" />
+            <span>{toast}</span>
+          </button>
+        ) : null}
         <header className="row" style={{ gap: 8, padding: '2px 4px' }}>
           <button className="icon-btn" style={{ width: 28, height: 28 }} onClick={() => store.leaveLobby()} aria-label="Выйти">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round">
@@ -713,6 +738,7 @@ function Table({ view }: { view: GameView }) {
               highlight={highlight}
               chosen={new Set(narrowed?.kind === 'pick' ? narrowed.path : [])}
               focus={focus}
+              lastMove={new Set(lastMove?.hexes ?? [])}
               onPick={pickHex}
             />
           </div>

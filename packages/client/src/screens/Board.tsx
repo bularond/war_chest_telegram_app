@@ -51,10 +51,12 @@ export interface BoardProps {
   chosen?: ReadonlySet<HexId>;
   /** Hexes to ring for attention, e.g. the two ends of an incoming attack. */
   focus?: ReadonlySet<HexId>;
+  /** Where the opponent's last turn happened. */
+  lastMove?: ReadonlySet<HexId>;
   onPick(hex: HexId): void;
 }
 
-export function Board({ view, highlight, chosen, focus, onPick }: BoardProps) {
+export function Board({ view, highlight, chosen, focus, lastMove, onPick }: BoardProps) {
   const board = boardFor(view.size);
   const youTeam = view.players[view.you]?.team ?? 0;
 
@@ -125,6 +127,25 @@ export function Board({ view, highlight, chosen, focus, onPick }: BoardProps) {
           />
         );
       })}
+
+      {/*
+        Where the opponent just played. Drawn under the coins and breathing
+        slowly: it is there to be found when you look up, not to compete with
+        the hexes you can actually tap.
+      */}
+      {geometry.cells.map(({ id, x, y }) =>
+        lastMove?.has(id) ? (
+          <polygon
+            key={`m-${id}`}
+            className="hex-decor hex-last"
+            points={hexPoints(x, y, R - 4)}
+            fill="var(--side-foe)"
+            fillOpacity={0.18}
+            stroke="var(--side-foe)"
+            strokeWidth={3}
+          />
+        ) : null,
+      )}
 
       {/* Whatever the current question is about, ringed so it can be found. */}
       {geometry.cells.map(({ id, x, y }) =>
