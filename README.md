@@ -88,14 +88,29 @@ npm run deploy
 git clone <репозиторий> war_chest && cd war_chest
 cp .env.example .env && $EDITOR .env      # токен, NODE_ENV=production
 docker compose up -d --build
+```
 
-# TLS и фронт
-sudo certbot certonly --nginx -d warchestapp.bularond.ru
-sudo cp deploy/nginx/warchestapp.bularond.ru.conf \
+Сертификат и конфиг — в три шага, и порядок здесь не украшение. Боевой конфиг
+называет файл сертификата, а nginx не поднимается, пока такого файла нет; certbot
+же требует работающего nginx, отвечающего за домен. Круг разрывает временный
+конфиг только на 80-м порту:
+
+```bash
+sudo cp deploy/nginx/warchestapp.bularond.ru.bootstrap.conf \
         /etc/nginx/sites-available/warchestapp.bularond.ru
 sudo ln -s /etc/nginx/sites-available/warchestapp.bularond.ru /etc/nginx/sites-enabled/
+sudo mkdir -p /var/www/html
+sudo nginx -t && sudo systemctl reload nginx
+
+sudo certbot certonly --webroot -w /var/www/html -d warchestapp.bularond.ru
+
+sudo cp deploy/nginx/warchestapp.bularond.ru.conf \
+        /etc/nginx/sites-available/warchestapp.bularond.ru
 sudo nginx -t && sudo systemctl reload nginx
 ```
+
+Плагин `--nginx` тут не годится: на новом домене ему нечего править, а если
+боевой конфиг уже на месте, он спотыкается о тот же несуществующий сертификат.
 
 Если на VPS меньше двух гигабайт памяти, сборка образа на нём может не влезть.
 Тогда собрать у себя и перевезти готовый образ:
