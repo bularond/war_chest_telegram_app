@@ -2,10 +2,23 @@
 
 import { boardFor, fromId, pixelCenter, type GameView, type HexId } from '@wc/shared';
 import { useMemo } from 'react';
-import { CrestImage, factionForSeat } from '../ui/Crest.js';
+import { CrestImage, factionForSeat, factionForTeam, type Faction } from '../ui/Crest.js';
 
 const R = 34; // hex radius in SVG units
 const PAD = 8;
+/** Poison reads as its own thing on a board of browns and greens. */
+const POISON = '#63417f';
+
+/**
+ * Who holds a location is drawn in the printed marker's own colours — the dark
+ * slate disc and the ivory one, sampled off the art. The "you/foe" green and
+ * orange of the unit rims would have said the same thing, but a green ring
+ * around the black player's board is a colour the game does not have.
+ */
+const CONTROL: Record<Faction, { main: string; edge: string }> = {
+  black: { main: '#203941', edge: '#0d181c' },
+  white: { main: '#f7eed8', edge: '#9c8047' },
+};
 /** A flat-top hex is 2R wide and √3·R tall — the tiles are drawn to that ratio. */
 const TILE_W = R * 2;
 const TILE_H = Math.sqrt(3) * R;
@@ -128,11 +141,6 @@ export function Board({ view, highlight, chosen, focus, onPick }: BoardProps) {
         ) : null,
       )}
 
-      {/* Fortifications sit on the location, under whatever is standing there. */}
-      {geometry.cells.map(({ id, x, y }) =>
-        view.forts[id] ? <Fortification key={`f-${id}`} x={x} y={y} r={R} /> : null,
-      )}
-
       {geometry.cells.map(({ id, x, y }) => {
         const stack = view.units[id];
         if (!stack) return null;
@@ -141,7 +149,12 @@ export function Board({ view, highlight, chosen, focus, onPick }: BoardProps) {
         return (
           // `hex-decor` makes taps fall through to the hex underneath —
           // otherwise you could never tap an enemy unit to attack it.
-          <g key={`u-${id}`} className="hex-decor" style={{ animation: 'wc-pop 200ms ease both' }}>
+          <g
+            key={`u-${id}`}
+            data-unit={id}
+            className="hex-decor"
+            style={{ animation: 'wc-pop 200ms ease both' }}
+          >
             {/* A bolstered unit shows its extra coins as an offset stack. */}
             {Array.from({ length: Math.min(stack.coins, 4) - 1 }).map((_, i) => (
               <circle
@@ -163,23 +176,71 @@ export function Board({ view, highlight, chosen, focus, onPick }: BoardProps) {
               y={y}
               faction={factionForSeat(stack.seat)}
             />
-            {stack.poisonedBy ? (
-              <image
-                href="/tokens/poison_icon.svg"
-                x={x - R * 0.5 - 9}
-                y={y - R * 0.5 - 9}
-                width={18}
-                height={18}
-              >
-                <title>
-                  Отравлен: своими монетами не ходит, не бьёт и не усиливается. Сбросьте его монету
-                  лицом вверх, чтобы снять яд
-                </title>
-              </image>
-            ) : null}
+          </g>
+        );
+      })}
+
+      {/*
+        Who holds a location, drawn over the units so a coin standing on it
+        cannot hide it: the printed marker under the coin is invisible exactly
+        where it matters most. The rim is clear of the coin, so it always shows.
+      */}
+      {geometry.cells.map(({ id, x, y }) => {
+        const team = view.control[id];
+        if (team === undefined) return null;
+        const ink = CONTROL[factionForTeam(team)];
+        const mine = team === youTeam;
+        return (
+          <g key={`c-${id}`} data-control={id} className="hex-decor">
+            <title>{mine ? 'Ваша локация' : 'Локация соперника'}</title>
+            {/* Two strokes: the disc's own colour, kept legible on both the
+                pale tiles and the dark ones by the rim it is printed with. */}
+            <polygon
+              points={hexPoints(x, y, R - 2)}
+              fill="none"
+              stroke={ink.edge}
+              strokeWidth={6}
+              strokeLinejoin="round"
+              opacity={0.85}
+            />
+            <polygon
+              className="hex-control"
+              points={hexPoints(x, y, R - 2)}
+              fill="none"
+              stroke={ink.main}
+              strokeWidth={3.5}
+              strokeLinejoin="round"
+            />
+          </g>
+        );
+      })}
+
+      {/* Walls over the garrison and over the control rim, not behind either. */}
+      {geometry.cells.map(({ id, x, y }) =>
+        view.forts[id] ? <Fortification key={`f-${id}`} x={x} y={y} r={R} /> : null,
+      )}
+
+      {/*
+        What the stack is carrying — how many coins, and whether it is poisoned
+        — goes on top of everything. These are numbers to be read, not scenery:
+        a wall drawn across them costs the player something they need.
+      */}
+      {geometry.cells.map(({ id, x, y }) => {
+        const stack = view.units[id];
+        if (!stack) return null;
+        const badge = R * 1.32 / 2 + 1.5;
+        return (
+          <g key={`b-${id}`} data-badge={id} className="hex-decor">
+            {stack.poisonedBy ? <Poisoned x={x} y={y} r={badge} /> : null}
             {stack.coins > 1 ? (
               <>
-                <circle cx={x + R * 0.5} cy={y + R * 0.5} r={9} fill="var(--color-bg)" stroke="var(--color-divider)" />
+                <circle
+                  cx={x + R * 0.5}
+                  cy={y + R * 0.5}
+                  r={9}
+                  fill="var(--color-bg)"
+                  stroke="var(--color-divider)"
+                />
                 <text
                   x={x + R * 0.5}
                   y={y + R * 0.5 + 4}
@@ -195,17 +256,52 @@ export function Board({ view, highlight, chosen, focus, onPick }: BoardProps) {
           </g>
         );
       })}
-
     </svg>
   );
 }
 
 /**
+ * A poisoned unit. The box marks it with a counter on the coin; the print-and-
+ * play set has no such token among the assets, so this is a drawn stand-in — a
+ * skull badge and a dashed ring, both in a colour the board uses nowhere else.
+ */
+function Poisoned({ x, y, r }: { x: number; y: number; r: number }) {
+  const bx = x - r * 0.72;
+  const by = y - r * 0.72;
+  return (
+    <g className="poisoned">
+      <title>
+        Отравлен: своими монетами не ходит, не бьёт и не усиливается. Сбросьте его монету лицом
+        вверх, чтобы снять яд
+      </title>
+      <circle
+        cx={x}
+        cy={y}
+        r={r}
+        fill="none"
+        stroke={POISON}
+        strokeWidth={3}
+        strokeDasharray="5 4"
+      />
+      <circle cx={bx} cy={by} r={9} fill={POISON} stroke="#fff" strokeWidth={1.5} />
+      {/* Skull: cranium, two sockets, jaw. */}
+      <circle cx={bx} cy={by - 1.2} r={4.2} fill="#fff" />
+      <circle cx={bx - 1.6} cy={by - 1.4} r={1.3} fill={POISON} />
+      <circle cx={bx + 1.6} cy={by - 1.4} r={1.3} fill={POISON} />
+      <rect x={bx - 2.2} y={by + 2.1} width={4.4} height={2.8} rx={1.1} fill="#fff" />
+    </g>
+  );
+}
+
+/**
  * A Fortification. The expansion's token art was not among the assets, so this
- * is a drawn stand-in: a battlemented wall ring around the hex.
+ * is a drawn stand-in: a battlemented wall ring around the hex. It is drawn
+ * over the unit rather than under it — a wall the garrison hides behind is a
+ * wall nobody can see. The ring sits inside the control rim, so a fortified
+ * location can say both things at once.
  */
 function Fortification({ x, y, r }: { x: number; y: number; r: number }) {
-  const ring = r - 9;
+  const ring = r - 11;
   const merlons = [];
   for (let i = 0; i < 6; i++) {
     const a = (Math.PI / 180) * (60 * i + 30);
@@ -220,12 +316,17 @@ function Fortification({ x, y, r }: { x: number; y: number; r: number }) {
         height={8}
         rx={1.5}
         fill="var(--color-neutral-800)"
+        stroke="#e8dcc2"
+        strokeWidth={1}
         transform={`rotate(${60 * i + 30} ${mx} ${my})`}
       />,
     );
   }
+  // Over a coin the stonework needs an edge of its own: the pale line first,
+  // the wall drawn on top of it.
   return (
-    <g className="hex-decor" opacity={0.92}>
+    <g className="hex-decor fort">
+      <circle cx={x} cy={y} r={ring} fill="none" stroke="#e8dcc2" strokeWidth={6} opacity={0.75} />
       <circle cx={x} cy={y} r={ring} fill="none" stroke="var(--color-neutral-800)" strokeWidth={4} />
       {merlons}
     </g>

@@ -10,6 +10,7 @@ import {
   UNITS,
   actingSeat,
   applyAction,
+  boardFor,
   createGame,
   legalActions,
   viewFor,
@@ -266,6 +267,138 @@ describe('table', () => {
     expect(board.querySelectorAll('.hex--legal').length).toBe(2); // two starting locations
   });
 
+  it('never deploys by itself, even with one location left to deploy to', () => {
+    const game = playedGame();
+    game.turn = 0;
+    game.players[0]!.hand = [game.players[0]!.units[0]!, 'royal', 'royal'];
+    // Block one of the two starting locations: a single legal destination is
+    // left, and the game must still wait to be told to use it.
+    const [, blocked] = Object.entries(game.control)
+      .filter(([, team]) => team === 0)
+      .map(([hex]) => hex);
+    game.units[blocked!] = { unit: game.players[0]!.units[1]!, team: 0, seat: 0, coins: 1 };
+
+    render(<App />);
+    pushView(game);
+
+    const hand = screen.getByText('Рука').parentElement!;
+    fireEvent.click(within(hand).getAllByRole('button')[0]!);
+    fireEvent.click(screen.getByText('Развернуть'));
+
+    // Nothing was sent: the one place it could go is lit up and waiting.
+    const board = screen.getByLabelText('Поле');
+    expect(board.querySelectorAll('.hex--legal').length).toBe(1);
+    expect(
+      FakeSocket.last!.sent.some((s) => (JSON.parse(s) as { t: string }).t === 'game.action'),
+    ).toBe(false);
+
+    // Either the hex or the button beside the hand plays it.
+    fireEvent.click(screen.getByText('Развернуть сюда'));
+    const sent = FakeSocket.last!.sent.map((s) => JSON.parse(s) as { t: string; action?: GameAction });
+    const deploy = sent.find((m) => m.t === 'game.action')?.action;
+    expect(deploy?.type).toBe('deploy');
+  });
+
+  it('marks a held location so a unit standing on it cannot hide it', () => {
+    const game = playedGame();
+    game.turn = 0;
+    const held = Object.keys(game.control)[0]!;
+    game.units[held] = { unit: game.players[0]!.units[0]!, team: 0, seat: 0, coins: 1 };
+
+    render(<App />);
+    pushView(game);
+
+    const board = screen.getByLabelText('Поле');
+    // The rim in the holder's colour is drawn round every held location…
+    expect(board.querySelectorAll('polygon.hex-control').length).toBe(
+      Object.keys(game.control).length,
+    );
+    // …and on the occupied one it comes after the coin, so the coin cannot
+    // bury it the way the printed marker underneath is buried.
+    const rim = board.querySelector(`g[data-control="${held}"]`)!;
+    const coin = board.querySelector(`g[data-unit="${held}"]`)!;
+    expect(coin.compareDocumentPosition(rim) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('claims and bolsters in place, but asks which unit when there are two', () => {
+    const game = duel(
+      ['knight', 'footman', 'scout', 'cavalry'],
+      ['swordsman', 'archer', 'ensign', 'pikeman'],
+    );
+    game.turn = 0;
+    // One Knight, standing on a location nobody holds: claiming it and
+    // bolstering it are each the only thing that coin can do there.
+    const free = boardFor(2).locations.find((hex) => game.control[hex] === undefined)!;
+    game.units[free] = { unit: 'knight', team: 0, seat: 0, coins: 1 };
+    game.players[0]!.hand = ['knight', 'footman', 'footman'];
+
+    render(<App />);
+    pushView(game);
+
+    const hand = screen.getByText('Рука').parentElement!;
+    fireEvent.click(within(hand).getAllByRole('button')[0]!);
+    fireEvent.click(screen.getByText('Захватить'));
+
+    // Straight through: there was never a second location to mean.
+    const sent = () =>
+      FakeSocket.last!.sent.map((s) => JSON.parse(s) as { t: string; action?: GameAction });
+    expect(sent().find((m) => m.t === 'game.action')?.action).toMatchObject({
+      type: 'control',
+      at: free,
+    });
+
+    // Two Footmen deployed, and the coin has to say which one it is feeding.
+    settle(game);
+    game.turn = 0;
+    game.units['5,2'] = { unit: 'footman', team: 0, seat: 0, coins: 1 };
+    game.units['4,2'] = { unit: 'footman', team: 0, seat: 0, coins: 1 };
+    pushView(game);
+
+    const before = sent().filter((m) => m.t === 'game.action').length;
+    fireEvent.click(within(screen.getByText('Рука').parentElement!).getAllByRole('button')[1]!);
+    fireEvent.click(screen.getByText('Усилить'));
+    expect(sent().filter((m) => m.t === 'game.action').length).toBe(before);
+    expect(screen.getByLabelText('Поле').querySelectorAll('.hex--legal').length).toBe(2);
+  });
+
+  it('draws the walls over both the garrison and the control rim', () => {
+    const game = playedGame();
+    game.turn = 0;
+    const held = Object.keys(game.control)[0]!;
+    game.units[held] = { unit: game.players[0]!.units[0]!, team: 0, seat: 0, coins: 1 };
+    game.forts[held] = true;
+
+    render(<App />);
+    pushView(game);
+
+    const board = screen.getByLabelText('Поле');
+    const fort = board.querySelector('g.fort')!;
+    for (const under of [`g[data-unit="${held}"]`, `g[data-control="${held}"]`]) {
+      const el = board.querySelector(under)!;
+      expect(el.compareDocumentPosition(fort) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+  });
+
+  it('marks a poisoned unit on the board', () => {
+    const game = duel(
+      ['saboteur', 'knight', 'scout', 'cavalry'],
+      ['swordsman', 'archer', 'ensign', 'pikeman'],
+    );
+    game.turn = 0;
+    game.units['5,2'] = { unit: 'swordsman', team: 1, seat: 1, coins: 1 };
+
+    render(<App />);
+    pushView(game);
+    const board = screen.getByLabelText('Поле');
+    expect(board.querySelector('g[data-badge="5,2"] .poisoned')).toBeNull();
+
+    game.units['5,2']!.poisonedBy = 'saboteur';
+    pushView(game);
+    const mark = board.querySelector('g[data-badge="5,2"] .poisoned')!;
+    expect(mark).not.toBeNull();
+    expect(mark.querySelector('title')!.textContent).toContain('Отравлен');
+  });
+
   it('keeps location knots and unit discs from swallowing taps', () => {
     const game = playedGame();
     game.turn = 0;
@@ -349,6 +482,12 @@ describe('table', () => {
     const hand = screen.getByText('Рука').parentElement!;
     fireEvent.click(within(hand).getAllByRole('button')[0]!);
     fireEvent.click(screen.getByText('Тактика'));
+    // The tactic names the Footman it is played through, so it is offered
+    // rather than played: nothing goes to the server until it is confirmed.
+    expect(
+      FakeSocket.last!.sent.some((s) => (JSON.parse(s) as { t: string }).t === 'game.action'),
+    ).toBe(false);
+    fireEvent.click(screen.getByText('Применить тактику'));
     settle();
 
     // One maneuver per Footman, asked for one at a time.

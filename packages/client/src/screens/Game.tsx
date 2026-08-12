@@ -108,6 +108,15 @@ const TACTIC_HINT: Record<string, string> = {
   infiltrate: 'войти на локацию и захватить её',
 };
 
+/**
+ * Actions that happen where the unit already stands: nothing is aimed, so the
+ * only question they can ask is *which* of your units does it — and with one
+ * unit of that type on the board there is no question at all. Deploying is not
+ * one of these: where the coin lands is a decision even when the board leaves
+ * a single space for it.
+ */
+const IN_PLACE = new Set(['control', 'bolster']);
+
 const ORDER = [
   'deploy',
   'bolster',
@@ -130,22 +139,22 @@ type Narrowed =
    * that needs no more taps — either because it is already complete (a Cavalry
    * that has moved and may now decline the charge) or because the one hex left
    * to tap would complete it (the Berserker paying for another maneuver).
+   * `forced` tells those two apart: the first is a way to stop short, the
+   * second is the only thing on offer, and the button has to say so.
    */
-  | { kind: 'pick'; path: HexId[]; hexes: Set<HexId>; confirm: GameAction | null };
+  | { kind: 'pick'; path: HexId[]; hexes: Set<HexId>; confirm: GameAction | null; forced: boolean };
 
 /**
  * Works out what the player still has to choose.
  *
- * `mustConfirm` blocks the last step from happening on its own. It is set for
- * the questions the game asks unprompted, which the player has agreed to
- * nothing yet — a single legal answer must still be tapped, or a Berserker
- * would silently pay a coin off its stack.
+ * The move is never made on the player's behalf, however forced it is: the
+ * last step is always a tap of the hex or of the button beside the hand. A
+ * board that deploys by itself because one location was legal leaves the
+ * player unsure of what just happened — and worse for the questions the game
+ * asks unprompted, where a Berserker would silently pay a coin off its stack.
+ * `send` is only ever reached through a tap the player has already made.
  */
-function narrow(
-  options: readonly GameAction[],
-  path: readonly HexId[],
-  mustConfirm: boolean,
-): Narrowed {
+function narrow(options: readonly GameAction[], path: readonly HexId[]): Narrowed {
   const viable = options.filter((a) => startsWith(hexPath(a), path));
   const ready = viable.filter((a) => hexPath(a).length === path.length);
   const rest = viable.filter((a) => hexPath(a).length > path.length);
@@ -154,30 +163,41 @@ function narrow(
 
   const hexes = new Set(rest.map((a) => hexPath(a)[path.length]!));
   if (hexes.size === 1 && ready.length === 0) {
-    // Nothing to decide at this step; look past it.
-    const next = narrow(options, [...path, [...hexes][0]!], mustConfirm);
-    if (next.kind !== 'send' || !mustConfirm) return next;
+    // Nothing to decide at this step; look past it — but only as far as the
+    // step that finishes the action, which stays the player's to make.
+    const next = narrow(options, [...path, [...hexes][0]!]);
+    if (next.kind !== 'send') return next;
   }
 
-  const confirm =
-    ready[0] ??
-    (hexes.size === 1 && rest.length === 1 && hexPath(rest[0]!).length === path.length + 1
+  const only =
+    hexes.size === 1 && rest.length === 1 && hexPath(rest[0]!).length === path.length + 1
       ? rest[0]!
-      : null);
+      : null;
+  const confirm = ready[0] ?? only;
   // `path` travels back out: steps skipped above were never tapped, and the
   // next tap has to continue from where this left off.
-  return { kind: 'pick', path: [...path], hexes, confirm };
+  return { kind: 'pick', path: [...path], hexes, confirm, forced: ready.length === 0 };
 }
 
-/** What the button for an action that needs no more taps should say. */
-function confirmLabel(a: GameAction): string {
+/**
+ * What the button for an action that needs no more taps should say. A choice
+ * the player is stopping short of is worded as such ("просто пойти"); the only
+ * move on offer just names itself.
+ */
+function confirmLabel(a: GameAction, forced: boolean): string {
   switch (a.type) {
     case 'control':
     case 'followControl':
       return 'Захватить локацию';
+    case 'deploy':
+      return 'Развернуть сюда';
     case 'move':
     case 'followMove':
-      return 'Просто пойти';
+      return forced ? 'Пойти сюда' : 'Просто пойти';
+    case 'followPlace':
+      return 'Поставить сюда';
+    case 'followShove':
+      return 'Сдвинуть';
     case 'attack':
     case 'followAttack':
       return 'Атаковать';
@@ -191,7 +211,7 @@ function confirmLabel(a: GameAction): string {
     case 'followBuildFort':
       return 'Возвести укрепление';
     case 'tactic':
-      return 'Тактика';
+      return forced ? 'Применить тактику' : 'Тактика';
     default:
       return 'Подтвердить';
   }
@@ -222,8 +242,6 @@ interface Targeting {
    * throw the question away, or the turn strands with nothing on screen.
    */
   owed?: boolean;
-  /** See `narrow`. */
-  mustConfirm?: boolean;
 }
 
 export function GameScreen() {
@@ -426,9 +444,6 @@ function Table({ view }: { view: GameView }) {
       chosen: [],
       label: describeStep(step, view),
       owed: true,
-      // A skippable follow-up is an offer, not an order: never take it up on
-      // the player's behalf, however few ways there are to accept.
-      mustConfirm: canSkip,
     };
   }
 
@@ -449,9 +464,7 @@ function Table({ view }: { view: GameView }) {
     if (view.winner !== null) notify(view.winner === view.players[view.you]?.team ? 'success' : 'error');
   }, [view.winner]);
 
-  const narrowed = targeting
-    ? narrow(targeting.options, targeting.chosen, Boolean(targeting.mustConfirm))
-    : null;
+  const narrowed = targeting ? narrow(targeting.options, targeting.chosen) : null;
   const highlight = useMemo(
     () => (narrowed?.kind === 'pick' ? narrowed.hexes : new Set<HexId>()),
     [narrowed],
@@ -472,8 +485,14 @@ function Table({ view }: { view: GameView }) {
     return out;
   }, [step, yourTurn]);
 
-  /** An action that needs no more taps: offered as a button, not a hex. */
-  const confirm = narrowed?.kind === 'pick' ? narrowed.confirm : null;
+  /**
+   * An action that needs no more taps: offered as a button, not a hex. A
+   * pending step whose only answer names no hex at all lands on `send` with
+   * nothing to tap — that too is a button, or the question has no answer.
+   */
+  const confirm =
+    narrowed === null ? null : narrowed.kind === 'pick' ? narrowed.confirm : narrowed.action;
+  const confirmForced = narrowed?.kind === 'pick' ? narrowed.forced : true;
 
   function send(action: GameAction): void {
     haptic();
@@ -485,7 +504,7 @@ function Table({ view }: { view: GameView }) {
   function pickHex(hex: HexId): void {
     if (!targeting || narrowed?.kind !== 'pick' || !narrowed.hexes.has(hex)) return;
     const chosen = [...narrowed.path, hex];
-    const next = narrow(targeting.options, chosen, Boolean(targeting.mustConfirm));
+    const next = narrow(targeting.options, chosen);
     if (next.kind === 'send') {
       send(next.action);
       return;
@@ -495,9 +514,15 @@ function Table({ view }: { view: GameView }) {
   }
 
   function chooseAction(actions: GameAction[], label: string): void {
-    // Picking the action off the sheet is the player's say-so, so a forced
-    // target needs no second tap.
-    const next = narrow(actions, [], false);
+    // An action that names no hex at all goes straight through — the tap on
+    // the sheet was the whole of it — and so does the only way to do an
+    // in-place one. Anything aimed is shown on the board first, even when the
+    // board leaves a single square to tap.
+    if (actions.length === 1 && IN_PLACE.has(actions[0]!.type)) {
+      send(actions[0]!);
+      return;
+    }
+    const next = narrow(actions, []);
     if (next.kind === 'send') {
       send(next.action);
       return;
@@ -686,11 +711,13 @@ function Table({ view }: { view: GameView }) {
             {/*
               Some answers name no further hex — taking the location you are
               already standing on, declining a charge after the move, paying a
-              coin for another maneuver. Those get a button.
+              coin for another maneuver. Those get a button, and so does the
+              lone move left on the board, which is offered but never played
+              on the player's behalf.
             */}
             {confirm ? (
               <button className="btn btn--primary hand__note" onClick={() => send(confirm)}>
-                {confirmLabel(confirm)}
+                {confirmLabel(confirm, confirmForced)}
               </button>
             ) : null}
 
@@ -711,7 +738,7 @@ function Table({ view }: { view: GameView }) {
               </button>
             ) : null}
 
-            {awaitingFollowUp && view.legal.some((a) => a.type === 'skip') ? (
+            {awaitingFollowUp && canSkip ? (
               <button
                 className="btn btn--primary hand__note"
                 onClick={() => {
