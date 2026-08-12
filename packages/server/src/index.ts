@@ -161,6 +161,9 @@ function authenticate(msg: Extract<ClientMessage, { t: 'auth' }>): Member {
       throw new RoomError('auth', `Не удалось проверить подпись Telegram: ${result.reason}`);
     }
     const { user } = result;
+    // Which of the two check strings the client's Telegram signs, available
+    // with LOG_LEVEL=debug. Worth having when the next protocol change lands.
+    app.log.debug({ signedOver: result.signedOver }, 'Telegram launch accepted');
     store.upsertUser({
       id: user.id,
       displayName: displayName(user),

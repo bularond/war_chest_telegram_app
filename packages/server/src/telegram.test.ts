@@ -13,11 +13,11 @@ import { botIdOf, verifyInitData } from './telegram.js';
 const TOKEN = '123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw';
 const OTHER = '987654321:BBFbqTcvCH1vGWJxfSeofSAs0K5PALDsaw';
 
-/** Signs launch parameters the way Telegram does. */
+/** Signs launch parameters the way Telegram does: every field, sorted by key. */
 function launch(token: string, params: Record<string, string>): string {
   const check = Object.entries(params)
+    .sort(([a], [b]) => (a < b ? -1 : 1))
     .map(([k, v]) => `${k}=${v}`)
-    .sort()
     .join('\n');
   const secret = createHmac('sha256', 'WebAppData').update(token).digest();
   const hash = createHmac('sha256', secret).update(check).digest('hex');
@@ -33,16 +33,34 @@ describe('verifyInitData', () => {
     expect(result).toEqual({
       ok: true,
       user: { id: '4242', firstName: 'Артём', lastName: 'Кузнецов' },
+      signedOver: 'all-fields',
     });
   });
 
-  it('ignores the Ed25519 signature Telegram sends alongside', () => {
-    // Newer clients add `signature`, which is not part of the HMAC. Counting
-    // it in would turn every launch from an up-to-date Telegram into a bad
-    // signature — and only for some users, which is the worst kind of bug.
-    const signed = launch(TOKEN, { user, auth_date: now() });
-    const withSignature = `${signed}&signature=abc123`;
-    expect(verifyInitData(withSignature, TOKEN).ok).toBe(true);
+  it('counts the Ed25519 signature field into the HMAC, as Telegram does', () => {
+    // Current clients send `signature` beside `hash`. Telegram hashes every
+    // field it sends except `hash`, so this one is in the check string —
+    // leaving it out rejected every launch from an up-to-date Telegram, which
+    // is exactly how this was found: in production, with a correct token.
+    const signed = launch(TOKEN, { user, auth_date: now(), signature: 'AbCd_ed25519' });
+    const result = verifyInitData(signed, TOKEN);
+    expect(result.ok && result.signedOver).toBe('all-fields');
+  });
+
+  it('still takes a launch hashed without it, for clients from before', () => {
+    const params = { user, auth_date: now() };
+    const older = `${launch(TOKEN, params)}&signature=AbCd_ed25519`;
+    const result = verifyInitData(older, TOKEN);
+    expect(result.ok && result.signedOver).toBe('without-signature');
+  });
+
+  it('takes neither from the wrong token', () => {
+    const withField = launch(OTHER, { user, auth_date: now(), signature: 'x' });
+    const withoutField = `${launch(OTHER, { user, auth_date: now() })}&signature=x`;
+    for (const initData of [withField, withoutField]) {
+      const result = verifyInitData(initData, TOKEN);
+      expect(result).toEqual({ ok: false, reason: 'bad-signature' });
+    }
   });
 
   it('names the reason it turned a launch away', () => {

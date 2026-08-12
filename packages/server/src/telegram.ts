@@ -38,7 +38,18 @@ export type AuthFailure =
   /** Signature checks out, but Telegram named no user. */
   | 'no-user';
 
-export type AuthResult = { ok: true; user: TelegramUser } | { ok: false; reason: AuthFailure };
+export type AuthResult =
+  /** `signedOver` says which of the two check strings matched. */
+  | { ok: true; user: TelegramUser; signedOver: 'all-fields' | 'without-signature' }
+  | { ok: false; reason: AuthFailure };
+
+/** Every field but `hash`, `key=value`, sorted by key, one per line. */
+function checkString(params: URLSearchParams): string {
+  return [...params.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([k, v]) => `${k}=${v}`)
+    .join('\n');
+}
 
 export function verifyInitData(initData: string, botToken: string): AuthResult {
   if (!initData) return { ok: false, reason: 'no-init-data' };
@@ -46,19 +57,35 @@ export function verifyInitData(initData: string, botToken: string): AuthResult {
   const hash = params.get('hash');
   if (!hash) return { ok: false, reason: 'no-hash' };
   params.delete('hash');
-  params.delete('signature'); // Ed25519 third-party signature, not part of the HMAC
 
-  const dataCheckString = [...params.entries()]
-    .map(([k, v]) => `${k}=${v}`)
-    .sort()
-    .join('\n');
+  /*
+   * Telegram hashes "all received fields except hash". Current clients also
+   * send `signature`, the Ed25519 one meant for validating without the bot
+   * token — and *that* check is the one that leaves it out. Dropping it from
+   * the HMAC too, as this did, turns every launch from an up-to-date Telegram
+   * into a bad signature.
+   *
+   * Both strings are tried rather than one, because each is an HMAC under the
+   * bot token: neither can be produced without it, so accepting either costs
+   * nothing and covers clients on both sides of the change.
+   */
+  const withSignature = checkString(params);
+  const withoutSignature = new URLSearchParams(params);
+  withoutSignature.delete('signature');
 
   const secret = createHmac('sha256', 'WebAppData').update(botToken).digest();
-  const expected = createHmac('sha256', secret).update(dataCheckString).digest('hex');
+  const given = Buffer.from(hash, 'hex');
+  const matches = (data: string): boolean => {
+    const expected = Buffer.from(createHmac('sha256', secret).update(data).digest('hex'), 'hex');
+    return expected.length === given.length && timingSafeEqual(expected, given);
+  };
 
-  const a = Buffer.from(expected, 'hex');
-  const b = Buffer.from(hash, 'hex');
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return { ok: false, reason: 'bad-signature' };
+  const signedOver = matches(withSignature)
+    ? 'all-fields'
+    : matches(checkString(withoutSignature))
+      ? 'without-signature'
+      : null;
+  if (!signedOver) return { ok: false, reason: 'bad-signature' };
 
   const authDate = Number(params.get('auth_date') ?? 0);
   if (!authDate || Date.now() / 1000 - authDate > MAX_AGE_SECONDS) {
@@ -66,7 +93,7 @@ export function verifyInitData(initData: string, botToken: string): AuthResult {
   }
 
   const user = parseUser(params.get('user'));
-  return user ? { ok: true, user } : { ok: false, reason: 'no-user' };
+  return user ? { ok: true, user, signedOver } : { ok: false, reason: 'no-user' };
 }
 
 /**
