@@ -20,7 +20,7 @@ import {
   type HexId,
   type UnitId,
 } from '@wc/shared';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { store, useApp } from '../net.js';
 import { haptic, lockPortrait, notify } from '../telegram.js';
 import { Marker, factionForSeat } from '../ui/Crest.js';
@@ -282,7 +282,12 @@ function Draft({ view }: { view: GameView }) {
       </div>
 
       <div className="scroll">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        {/*
+          `minmax(0, 1fr)` rather than `1fr`: a grid column is as wide as its
+          widest word unless told otherwise, and one long unit name was enough
+          to push the whole screen sideways.
+        */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
           {view.draftPool.map((unit) => {
             const action = view.legal.find(
               (a) => (a.type === 'draft' || a.type === 'ban') && a.unit === unit,
@@ -304,6 +309,7 @@ function Draft({ view }: { view: GameView }) {
                   display: 'grid',
                   placeItems: 'center',
                   gap: 6,
+                  minWidth: 0,
                 }}
               >
                 {/* Reading the card and choosing it are separate taps: on your
@@ -317,28 +323,51 @@ function Draft({ view }: { view: GameView }) {
                     display: 'grid',
                     placeItems: 'center',
                     gap: 6,
+                    minWidth: 0,
+                    width: '100%',
                   }}
                 >
                   <Coin unit={unit} size={48} />
-                  <span style={{ fontSize: 11, lineHeight: 1.15, textAlign: 'center' }}>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      lineHeight: 1.15,
+                      textAlign: 'center',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
                     {UNITS[unit].name.ru}
                   </span>
                   <span className="muted" style={{ fontSize: 10 }}>
                     {UNITS[unit].coins} монет
                   </span>
                 </button>
-                {action ? (
-                  <button
-                    className="btn btn--primary btn--block"
-                    style={{ padding: '6px 10px', fontSize: 12, marginTop: 2 }}
-                    onClick={() => {
-                      haptic();
-                      store.act(action);
-                    }}
-                  >
-                    {banning ? 'Вычеркнуть' : 'Взять'}
-                  </button>
-                ) : null}
+                {/*
+                  Always here, disabled when it is not your turn. Showing it
+                  only when it can be pressed moved every card on the screen
+                  twice a turn, which reads as the interface breaking rather
+                  than as your turn beginning.
+                */}
+                <button
+                  className="btn btn--primary btn--block"
+                  disabled={!action}
+                  style={{
+                    padding: '6px 10px',
+                    fontSize: 12,
+                    marginTop: 2,
+                    ...(action ? {} : { opacity: 0.3 }),
+                  }}
+                  onClick={
+                    action
+                      ? () => {
+                          haptic();
+                          store.act(action);
+                        }
+                      : undefined
+                  }
+                >
+                  {banning ? 'Вычеркнуть' : 'Взять'}
+                </button>
               </div>
             );
           })}
@@ -347,7 +376,7 @@ function Draft({ view }: { view: GameView }) {
         {view.banned.length > 0 ? (
           <div style={{ marginTop: 18 }}>
             <div className="kicker">Вычеркнуто</div>
-            <div className="row" style={{ gap: 8, marginTop: 6 }}>
+            <div className="row" style={{ gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
               {view.banned.map((u) => (
                 <button
                   key={u}
@@ -381,7 +410,7 @@ function Draft({ view }: { view: GameView }) {
               <div className="kicker">
                 {p.seat === view.you ? 'Ваш набор' : p.displayName}
               </div>
-              <div className="row" style={{ gap: 8, marginTop: 6, minHeight: 44 }}>
+              <div className="row" style={{ gap: 8, marginTop: 6, minHeight: 44, flexWrap: 'wrap' }}>
                 {picked[p.seat]?.map((u) => (
                   <button key={u} style={{ background: 'none', border: 'none', padding: 0 }} onClick={() => setPreview(u)}>
                     <Coin
@@ -419,7 +448,7 @@ function countCoins(pile: Readonly<Partial<Record<UnitId, number>>>): number {
 function Table({ view }: { view: GameView }) {
   const [sheetCoin, setSheetCoin] = useState<number | null>(null);
   const [targeting, setTargeting] = useState<Targeting | null>(null);
-  const [modal, setModal] = useState<'log' | 'discard' | 'removed' | 'decrees' | null>(null);
+  const [modal, setModal] = useState<'log' | 'piles' | 'decrees' | null>(null);
   const [pileSeat, setPileSeat] = useState(0);
   const [card, setCard] = useState<UnitId | null>(null);
   const markerCount = boardFor(view.size).controlMarkers;
@@ -620,7 +649,6 @@ function Table({ view }: { view: GameView }) {
                           <Marker key={i} team={p.team} placed={i >= p.markersRemaining} />
                         ))}
                       </span>
-                      <span>ставить ещё {p.markersRemaining}</span>
                     </div>
                   </div>
                 </div>
@@ -644,30 +672,33 @@ function Table({ view }: { view: GameView }) {
                   ))}
                 </div>
 
+                {/*
+                  Every pile opens the same sheet: where a coin is matters more
+                  than which heap you happened to tap, and counting them by eye
+                  off four different tags is what a player was doing instead.
+                */}
                 <div className="row" style={{ gap: 6, fontSize: 11, flexWrap: 'wrap' }}>
-                  <span className="tag tag--green">мешок {p.bagCount}</span>
-                  <button
-                    className="tag tag--accent"
-                    style={{ border: 'none' }}
-                    onClick={() => {
-                      setPileSeat(p.seat);
-                      setModal('discard');
-                    }}
-                  >
-                    сброс {p.discard.length}
-                  </button>
-                  <button
-                    className="tag tag--muted"
-                    style={{ border: 'none' }}
-                    title="Монеты, выбитые с поля — они вышли из игры"
-                    onClick={() => {
-                      setPileSeat(p.seat);
-                      setModal('removed');
-                    }}
-                  >
-                    потери {countCoins(p.removed)}
-                  </button>
-                  {p.seat !== view.you ? <span className="tag tag--accent">рука {p.handCount}</span> : null}
+                  {(
+                    [
+                      ['мешок', p.bagCount, 'tag--green'],
+                      ['рука', p.handCount, 'tag--accent'],
+                      ['сброс', p.discard.length, 'tag--accent'],
+                      ['потери', countCoins(p.removed), 'tag--muted'],
+                    ] as const
+                  ).map(([label, n, tone]) => (
+                    <button
+                      key={label}
+                      className={`tag ${tone}`}
+                      style={{ border: 'none' }}
+                      title={`${p.seat === view.you ? 'Ваши монеты' : `Монеты: ${p.displayName}`} — нажмите, чтобы посмотреть`}
+                      onClick={() => {
+                        setPileSeat(p.seat);
+                        setModal('piles');
+                      }}
+                    >
+                      {label} {n}
+                    </button>
+                  ))}
                   {p.seat === view.you && view.fortSupply > 0 ? (
                     <span className="tag tag--green">укреплений {view.fortSupply}</span>
                   ) : null}
@@ -824,12 +855,8 @@ function Table({ view }: { view: GameView }) {
         </Modal>
       ) : null}
 
-      {modal === 'discard' ? (
-        <DiscardModal view={view} seat={pileSeat} onClose={() => setModal(null)} />
-      ) : null}
-
-      {modal === 'removed' ? (
-        <RemovedModal view={view} seat={pileSeat} onClose={() => setModal(null)} />
+      {modal === 'piles' ? (
+        <PilesModal view={view} seat={pileSeat} onClose={() => setModal(null)} />
       ) : null}
 
       {card ? <UnitCardModal unit={card} onClose={() => setCard(null)} /> : null}
@@ -1182,99 +1209,176 @@ function ActionSheet({
   );
 }
 
-/**
- * Coins knocked off the board. The rulebook puts them back in the box rather
- * than in the discard pile, so they are gone for good — unless Nobility is in
- * play, where the Reinforce decree calls one back.
- */
-function RemovedModal({ view, seat, onClose }: { view: GameView; seat: number; onClose(): void }) {
-  const p = view.players[seat]!;
-  const gone = Object.entries(p.removed).filter(([, n]) => (n ?? 0) > 0) as [UnitId, number][];
-  const reinforce = view.decrees.some((d) => d.id === 'reinforce');
+/** One coin with its name under it, the way every pile draws them. */
+function PileCoin({
+  unit,
+  seat,
+  you,
+  count,
+  dimmed,
+}: {
+  unit: CoinId;
+  seat: number;
+  you: boolean;
+  count?: number;
+  dimmed?: boolean;
+}) {
   return (
-    <Modal onClose={onClose}>
-      <h3 style={{ fontSize: 19, margin: '0 0 3px' }}>
-        {seat === view.you ? 'Ваши потери' : `Потери: ${p.displayName}`}
-      </h3>
-      <div className="muted" style={{ fontSize: 11, marginBottom: 12 }}>
-        {reinforce
-          ? 'Эти монеты выбыли из игры. Указ «Подкрепление» возвращает одну из них в запас.'
-          : 'Эти монеты выбиты с поля и в игру не вернутся.'}
-      </div>
-      <div className="row" style={{ flexWrap: 'wrap', gap: 10 }}>
-        {gone.map(([unit, n]) => (
-          <div key={unit} style={{ width: 74, display: 'grid', placeItems: 'center', gap: 4 }}>
-            <Coin
-              unit={unit}
-              size={48}
-              faction={factionForSeat(seat)}
-              ring={seat === view.you ? 'var(--side-you)' : 'var(--side-foe)'}
-              badge={n}
-              dimmed
-            />
-            <span className="muted" style={{ fontSize: 11, textAlign: 'center' }}>
-              {UNITS[unit].name.ru}
-            </span>
-          </div>
-        ))}
-        {gone.length === 0 ? <div className="muted">Пока никого</div> : null}
-      </div>
-    </Modal>
+    <div style={{ width: 68, display: 'grid', placeItems: 'center', gap: 4 }}>
+      <Coin
+        unit={unit}
+        size={44}
+        faction={factionForSeat(seat)}
+        ring={you ? 'var(--side-you)' : 'var(--side-foe)'}
+        {...(count !== undefined ? { badge: count } : {})}
+        {...(dimmed ? { dimmed: true } : {})}
+      />
+      <span className="muted" style={{ fontSize: 11, textAlign: 'center', overflowWrap: 'anywhere' }}>
+        {coinName(unit).ru}
+      </span>
+    </div>
   );
 }
 
-function DiscardModal({ view, seat, onClose }: { view: GameView; seat: number; onClose(): void }) {
+/** Coins whose faces this player is not allowed to see. */
+function HiddenCoins({ count, note }: { count: number; note: string }) {
+  return (
+    <div style={{ width: 68, display: 'grid', placeItems: 'center', gap: 4 }}>
+      <div
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: '50%',
+          background: 'var(--color-neutral-400)',
+          display: 'grid',
+          placeItems: 'center',
+          color: 'var(--color-bg)',
+          fontFamily: 'var(--font-heading)',
+        }}
+      >
+        {count}
+      </div>
+      <span className="muted" style={{ fontSize: 11, textAlign: 'center' }}>
+        {note}
+      </span>
+    </div>
+  );
+}
+
+function countBy(coins: readonly CoinId[]): [CoinId, number][] {
+  const counts = new Map<CoinId, number>();
+  for (const c of coins) counts.set(c, (counts.get(c) ?? 0) + 1);
+  return [...counts];
+}
+
+function Pile({
+  title,
+  note,
+  empty,
+  children,
+}: {
+  title: string;
+  note: string;
+  empty: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div className="kicker">{title}</div>
+      <div className="muted" style={{ fontSize: 11, margin: '2px 0 6px' }}>
+        {note}
+      </div>
+      {empty ? (
+        <div className="muted">Пусто</div>
+      ) : (
+        <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Where a player's coins are: bag, hand, discard, losses.
+ *
+ * What can be shown depends on whose side it is. Your own bag and hand are
+ * yours to count — the server sends the bag sorted, so it says what is in
+ * there and not what you are about to draw. Across the table both are backs,
+ * and so is anything discarded facedown; that is the game, not a shortcoming
+ * of the screen.
+ */
+function PilesModal({ view, seat, onClose }: { view: GameView; seat: number; onClose(): void }) {
   const p = view.players[seat]!;
-  const counts = new Map<string, number>();
-  let hidden = 0;
-  for (const d of p.discard) {
-    if (d.coin === null) hidden++;
-    else counts.set(d.coin, (counts.get(d.coin) ?? 0) + 1);
-  }
+  const you = seat === view.you;
+  const reinforce = view.decrees.some((d) => d.id === 'reinforce');
+
+  const faceUp = countBy(p.discard.filter((d) => d.coin !== null).map((d) => d.coin!));
+  const facedown = p.discard.filter((d) => d.coin === null).length;
+  const gone = Object.entries(p.removed).filter(([, n]) => (n ?? 0) > 0) as [UnitId, number][];
+
   return (
     <Modal onClose={onClose}>
-      <h3 style={{ fontSize: 19, margin: '0 0 3px' }}>
-        {seat === view.you ? 'Ваш сброс' : `Сброс: ${p.displayName}`}
+      <h3 style={{ fontSize: 19, margin: '0 0 12px' }}>
+        {you ? 'Ваши монеты' : `Монеты: ${p.displayName}`}
       </h3>
-      <div className="muted" style={{ fontSize: 11, marginBottom: 12 }}>
-        Монеты вернутся в мешок, когда он опустеет.
-      </div>
-      <div className="row" style={{ flexWrap: 'wrap', gap: 10 }}>
-        {[...counts].map(([unit, n]) => (
-          <div key={unit} style={{ width: 74, display: 'grid', placeItems: 'center', gap: 4 }}>
-            <Coin
-              unit={unit as CoinId}
-              size={48}
-              faction={factionForSeat(seat)}
-              ring={seat === view.you ? 'var(--side-you)' : 'var(--side-foe)'}
-              badge={n}
-            />
-            <span className="muted" style={{ fontSize: 11, textAlign: 'center' }}>
-              {coinName(unit as CoinId).ru}
-            </span>
-          </div>
+
+      <Pile
+        title={`Мешок — ${p.bagCount}`}
+        note={
+          you
+            ? 'Что лежит — видно, что придёт следующим — нет.'
+            : 'Состав чужого мешка закрыт.'
+        }
+        empty={p.bagCount === 0}
+      >
+        {p.bag ? (
+          countBy(p.bag).map(([unit, n]) => (
+            <PileCoin key={unit} unit={unit} seat={seat} you={you} count={n} />
+          ))
+        ) : (
+          <HiddenCoins count={p.bagCount} note="в мешке" />
+        )}
+      </Pile>
+
+      <Pile
+        title={`Рука — ${p.handCount}`}
+        note={you ? 'Ими вы ходите в этом раунде.' : 'Чужая рука закрыта.'}
+        empty={p.handCount === 0}
+      >
+        {p.hand ? (
+          countBy(p.hand).map(([unit, n]) => (
+            <PileCoin key={unit} unit={unit} seat={seat} you={you} count={n} />
+          ))
+        ) : (
+          <HiddenCoins count={p.handCount} note="в руке" />
+        )}
+      </Pile>
+
+      <Pile
+        title={`Сброс — ${p.discard.length}`}
+        note="Вернётся в мешок, когда он опустеет."
+        empty={p.discard.length === 0}
+      >
+        {faceUp.map(([unit, n]) => (
+          <PileCoin key={unit} unit={unit} seat={seat} you={you} count={n} />
         ))}
-        {hidden > 0 ? (
-          <div style={{ width: 74, display: 'grid', placeItems: 'center', gap: 4 }}>
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: '50%',
-                background: 'var(--color-neutral-400)',
-                display: 'grid',
-                placeItems: 'center',
-                color: 'var(--color-bg)',
-                fontFamily: 'var(--font-heading)',
-              }}
-            >
-              {hidden}
-            </div>
-            <span className="muted" style={{ fontSize: 11, textAlign: 'center' }}>рубашкой вниз</span>
-          </div>
-        ) : null}
-        {p.discard.length === 0 ? <div className="muted">Пусто</div> : null}
-      </div>
+        {facedown > 0 ? <HiddenCoins count={facedown} note="рубашкой вниз" /> : null}
+      </Pile>
+
+      <Pile
+        title={`Потери — ${countCoins(p.removed)}`}
+        note={
+          reinforce
+            ? 'Выбиты с поля. Указ «Подкрепление» возвращает одну в запас.'
+            : 'Выбиты с поля и в игру не вернутся.'
+        }
+        empty={gone.length === 0}
+      >
+        {gone.map(([unit, n]) => (
+          <PileCoin key={unit} unit={unit} seat={seat} you={you} count={n} dimmed />
+        ))}
+      </Pile>
     </Modal>
   );
 }

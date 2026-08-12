@@ -186,6 +186,25 @@ describe('playing the computer', () => {
 });
 
 describe('draft', () => {
+  it('keeps the take button in place while the other side is choosing', () => {
+    render(<App />);
+    const game = newGame();
+    // Not your turn: the buttons stay, greyed, so nothing on screen moves when
+    // the turn comes back.
+    game.turn = 1;
+    pushView(game, 0);
+
+    const buttons = screen.getAllByText('Взять').map((el) => el.closest('button')!);
+    expect(buttons).toHaveLength(game.draftPool.length);
+    expect(buttons.every((b) => b.disabled)).toBe(true);
+
+    game.turn = 0;
+    pushView(game, 0);
+    const live = screen.getAllByText('Взять').map((el) => el.closest('button')!);
+    expect(live).toHaveLength(game.draftPool.length);
+    expect(live.some((b) => b.disabled)).toBe(false);
+  });
+
   it('opens the card on a tap and drafts only from the button', () => {
     render(<App />);
     const game = newGame();
@@ -563,8 +582,46 @@ describe('table', () => {
     expect(screen.getByText('монет нет')).toBeTruthy();
 
     fireEvent.click(screen.getByText('потери 2'));
-    expect(screen.getByText('Ваши потери')).toBeTruthy();
+    expect(screen.getByText('Ваши монеты')).toBeTruthy();
     expect(screen.getByText(UNITS.knight.name.ru)).toBeTruthy();
+  });
+
+  it('shows where every coin is, and keeps the other side\u2019s hidden', () => {
+    const game = playedGame();
+    game.turn = 0;
+    game.players[0]!.removed.knight = 1;
+    // One coin discarded face up and one facedown, on each side.
+    for (const seat of [0, 1]) {
+      const p = game.players[seat]!;
+      p.discard = [
+        { coin: p.units[0]!, faceUp: true },
+        { coin: p.units[1]!, faceUp: false },
+      ];
+    }
+
+    render(<App />);
+    pushView(game);
+
+    // Your own side: the bag is listed by what is in it, the hand by name.
+    const mine = screen.getAllByText(/^мешок /)[0]!;
+    fireEvent.click(mine);
+    let modal = document.querySelector('.modal') as HTMLElement;
+    expect(within(modal).getByText(/^Мешок —/)).toBeTruthy();
+    expect(within(modal).queryByText('в мешке')).toBeNull();
+    expect(within(modal).queryByText('в руке')).toBeNull();
+    // A coin you put down facedown is still yours to look at.
+    expect(within(modal).queryByText('рубашкой вниз')).toBeNull();
+    fireEvent.click(document.querySelector('.backdrop')!);
+
+    // The other side: bag and hand are counts, and so is the facedown coin.
+    fireEvent.click(screen.getAllByText(/^мешок /)[1]!);
+    modal = document.querySelector('.modal') as HTMLElement;
+    expect(within(modal).getByText(`Монеты: ${game.players[1]!.displayName}`)).toBeTruthy();
+    expect(within(modal).getByText('в мешке')).toBeTruthy();
+    expect(within(modal).getByText('в руке')).toBeTruthy();
+    expect(within(modal).getByText('рубашкой вниз')).toBeTruthy();
+    // …while the coin they discarded face up is named.
+    expect(within(modal).getByText(UNITS[game.players[1]!.units[0]!].name.ru)).toBeTruthy();
   });
 
   /** Plays whatever the client last sent, and pushes the new state back. */

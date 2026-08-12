@@ -54,8 +54,20 @@ describe('public state', () => {
     expect(view.players[1]?.bagCount).toBe(state.players[1]?.bag.length);
     const facedown = state.players[1]?.discard.filter((d) => !d.faceUp) ?? [];
     expect(view.players[1]?.discard.filter((d) => d.coin === null).length).toBe(facedown.length);
-    // Nothing in the view carries the opponent's bag order.
-    expect(JSON.stringify(view)).not.toContain('"bag"');
+    // Nothing of the opponent's bag travels at all, contents or order.
+    expect(view.players[1]?.bag).toBeUndefined();
+  });
+
+  it('gives players their own bag, but not the order they will draw it in', () => {
+    const state = mid(3, ['nobility'], 120);
+    const real = state.players[0]!.bag;
+    const bag = publicStateFor(state, 0).players[0]?.bag;
+
+    // Your own coins are yours to count…
+    expect([...(bag ?? [])].sort()).toEqual([...real].sort());
+    // …but coins are drawn off the end of the bag, so its order is the list of
+    // your next draws. Sorted is the whole point.
+    expect(bag).toEqual([...(bag ?? [])].sort());
   });
 });
 

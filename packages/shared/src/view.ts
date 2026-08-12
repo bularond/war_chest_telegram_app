@@ -36,6 +36,12 @@ export interface PlayerView {
   readonly handCount: number;
   /** Present only for the viewing player. */
   readonly hand?: readonly CoinId[];
+  /**
+   * What is in the viewing player's own bag — their own coins, which they are
+   * entitled to know. Sorted, never in bag order: coins are drawn off the end,
+   * so the real order is the list of their next draws.
+   */
+  readonly bag?: readonly CoinId[];
   /** Facedown coins show as `null` to everyone except their owner. */
   readonly discard: readonly { readonly coin: CoinId | null; readonly faceUp: boolean }[];
   readonly supply: Readonly<Partial<Record<UnitId, number>>>;
@@ -100,6 +106,7 @@ export function viewFor(state: GameState, seat: Seat, legal: readonly GameAction
       bagCount: p.bag.length,
       handCount: p.hand.length,
       ...(p.seat === seat || p.seat === revealed ? { hand: [...p.hand] } : {}),
+      ...(p.seat === seat ? { bag: [...p.bag].sort() } : {}),
       discard: p.discard.map((d) => ({
         coin: d.faceUp || p.seat === seat ? d.coin : null,
         faceUp: d.faceUp,
