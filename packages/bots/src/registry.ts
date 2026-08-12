@@ -47,6 +47,17 @@ export const BOTS: Readonly<Record<string, Bot>> = {
  * Bump it whenever a bot's behaviour changes; stage 8 replaces it with the
  * version of the evaluation weights file.
  *
+ * `@5` drafts by measured unit strength instead of by how many coins of a unit
+ * the box contains. +140 Elo, and the biggest single step here by a factor of
+ * three — because it is the one part of the game the tuning had never touched:
+ * every match before it was played on units dealt by seed, where there is no
+ * draft at all.
+ *
+ * `@4` adds the one evaluation feature that has ever earned its place: coins in
+ * hand for units that are not on the board. It is worth +43 Elo, and it was
+ * closed as worthless the night before on a stricter definition that fired in
+ * one position out of a hundred.
+ *
  * `@3` is `@2` with the two numbers the lab of 12 August accepted: the UCB
  * exploration constant and the weight on coins in reserve. Together they scored
  * 60,7% over 428 games against what came before — +76 Elo — and 58,1% over 590
@@ -58,7 +69,7 @@ export const BOTS: Readonly<Record<string, Bot>> = {
  * test. But the levels are budgeted in milliseconds, so a search 2,5–3× faster
  * is a different opponent across the table, and the log has to say which one.
  */
-export const BOT_BUILD = 'search@3';
+export const BOT_BUILD = 'search@5';
 
 export function botNamed(name: string): Bot | undefined {
   return BOTS[name];

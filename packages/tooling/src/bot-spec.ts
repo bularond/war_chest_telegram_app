@@ -35,7 +35,7 @@ export type SearchKnobs = Partial<
    * has been blind to, since matches are played on dealt units unless asked
    * otherwise.
    */
-  readonly draftBy?: 'coins' | 'scarcity' | 'random';
+  readonly draftBy?: 'coins' | 'scarcity' | 'random' | 'measured';
 };
 
 export type BotSpec =

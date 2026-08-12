@@ -2,6 +2,38 @@
   "note": "Read before every experiment: proposals can be appended while the lab runs.",
   "proposals": [
     {
+      "id": "draft-pooled-check",
+      "note": "The pooled table against the old rule, in draft mode. The table itself changed only by swaps of neighbours inside their confidence intervals, so this is not a test of the ordering — it is a check that replacing an estimate with a better-measured one did not break anything. A repeat of the 24% the coin rule scored is the expected outcome.",
+      "knobs": {
+        "draftBy": "coins"
+      },
+      "draftMode": "draft"
+    },
+    {
+      "id": "draft-back-to-coins",
+      "note": "The measured draft switched back to the old rule, on fresh seeds. A repeat at the same setting is 'nothing to change' now that the baseline carries it — the same trap that caught the reserve replication, walked into twice. A REJECT here says what the ACCEPT said, from the other side.",
+      "knobs": {
+        "draftBy": "coins"
+      },
+      "draftMode": "draft"
+    },
+    {
+      "id": "draft-back-to-random",
+      "note": "And against no rule at all, since that is the honest floor: last night random drafting was indistinguishable from the coin rule. If the measured table is worth what it looks worth, this should lose by more.",
+      "knobs": {
+        "draftBy": "random"
+      },
+      "draftMode": "draft"
+    },
+    {
+      "id": "draft-measured",
+      "note": "Draft by the measured table: 1440 games of the search playing itself, units dealt at random, how often each was on the winning side. Spread 17.3 points from Light Cavalry at 59.8% to Footman at 42.4%. The rule it replaces reads the coin count, which carries no information about strength under search play — four-coin units average 49.8%, five-coin ones 50.0%, which is why the draft has never mattered.",
+      "knobs": {
+        "draftBy": "measured"
+      },
+      "draftMode": "draft"
+    },
+    {
       "id": "fpu-neg08-again",
       "note": "The same setting on a fresh block of seeds. A verdict this decisive on 48 games deserves a second sample before it becomes a conclusion — the night already produced one +18 Elo that evaporated on re-test.",
       "knobs": {
@@ -58,6 +90,13 @@
       "note": "The same, a stronger dose. Its spread is large enough that a bigger weight is not obviously wrong.",
       "set": {
         "idleHand": 0.15
+      }
+    },
+    {
+      "id": "idle-reverse",
+      "note": "The accepted feature switched back off, on a fresh block of seeds. A repeat at the same value would be 'nothing to change' now that the baseline carries it, so the check runs the other way: a REJECT here says the same thing the ACCEPT said, from the other side and on deals it has not seen. The night already produced one +18 Elo that evaporated on re-test, so nothing counts until it survives this.",
+      "set": {
+        "idleHand": 0
       }
     },
     {

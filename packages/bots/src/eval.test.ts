@@ -76,12 +76,20 @@ function contact(mine: UnitId, theirs: UnitId): GameState {
   return state;
 }
 
+/**
+ * Weights with *only* what the test asks for, built from zero rather than from
+ * `BASE_WEIGHTS`.
+ *
+ * It used to start from the base and zero the four features it knew about,
+ * which meant every feature accepted afterwards leaked into every test — seven
+ * of them broke the moment `idleHand` stopped being zero. A helper called `only`
+ * has to mean only.
+ */
 const only = (over: Partial<EvalWeights>): EvalWeights => ({
-  ...BASE_WEIGHTS,
-  markers: 0,
+  ...(Object.fromEntries(
+    Object.keys(BASE_WEIGHTS).map((k) => [k, k === 'version' ? 'test' : 0]),
+  ) as unknown as EvalWeights),
   material: 1,
-  reserve: 0,
-  proximity: 0,
   ...over,
 });
 
@@ -288,31 +296,23 @@ describe('the feature vector', () => {
       }
       state.phase = 'play';
 
-      const weights: EvalWeights = {
+      // Built from `FEATURES` rather than listed by hand: test files are not
+      // typechecked in this project, so a feature added later would silently be
+      // missing from the literal and turn the identity below into NaN. Which is
+      // exactly what happened once.
+      const weights = {
         version: 'random',
-        markers: rand() * 2 - 1,
-        material: rand() * 2 - 1,
-        // Kept modest on purpose: a unit whose multiplier would go negative is
-        // clamped at zero in `evaluate`, and that clamp is the one place the
-        // formula stops being linear. Nothing generates weights that hostile,
-        // but the identity being checked here only holds on the linear side of
-        // it.
-        scarcity: rand() * 0.8 - 0.4,
-        reach: rand() * 0.8 - 0.4,
-        reserve: rand() * 2 - 1,
-        bolster: rand() * 2 - 1,
-        proximity: rand() * 2 - 1,
-        initiative: rand() * 2 - 1,
-        tempo: rand() * 2 - 1,
-        hand: rand() * 2 - 1,
-        threat: rand() * 2 - 1,
-        deadWeight: rand() * 2 - 1,
-        // Zero on purpose, and the identity below only holds that way: walking
-        // proximity measures the same thing as straight-line proximity, so it
-        // is deliberately absent from `FEATURES` — a fit that had both would
-        // split one feature's weight between two coordinates.
+        ...Object.fromEntries(
+          FEATURES.map((key) => [
+            key,
+            // Modest for the two that multiply rather than add: a unit whose
+            // multiplier would go negative is clamped at zero in `evaluate`, and
+            // that clamp is the one place the formula stops being linear.
+            key === 'scarcity' || key === 'reach' ? rand() * 0.8 - 0.4 : rand() * 2 - 1,
+          ]),
+        ),
         proximityWalk: 0,
-      };
+      } as unknown as EvalWeights;
 
       for (const seat of [0, 1] as const) {
         const f = featureVector(state, seat);

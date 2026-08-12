@@ -98,7 +98,7 @@ export interface EvalWeights {
  * the search something to steer by while no marker is in reach.
  */
 export const BASE_WEIGHTS: EvalWeights = {
-  version: 'eval@4',
+  version: 'eval@5',
   // The anchor. Coordinate descent scales the others against it, because the
   // overall scale of the sum is swallowed by `tanh` and only ratios mean
   // anything.
@@ -128,8 +128,15 @@ export const BASE_WEIGHTS: EvalWeights = {
   tempo: 0,
   hand: 0,
   threat: 0,
+  // Zero because it fires in one position out of a hundred, which is why its
+  // match said nothing. `idleHand` below is the same thought, loosened until it
+  // says something.
   deadWeight: 0,
-  idleHand: 0,
+  // 468 games, 56.2%, +43 Elo. Switching it back off on fresh seeds cost 38 Elo
+  // (182 games, 44.5%), and twice the weight was worse than none of it
+  // (304 games, 46.4%) — so this is a point, not a plateau. The value came from
+  // a fit to the search's own valuations, not from taste.
+  idleHand: 0.06,
 };
 
 /** Positive is good for `seat`. Clipped into [-1, 1] by `tanh`. */

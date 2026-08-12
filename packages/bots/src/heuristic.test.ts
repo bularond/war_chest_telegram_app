@@ -272,4 +272,37 @@ describe('drafting', () => {
     const offered = view.legal.map((a) => UNITS[(a as { unit: UnitId }).unit].coins);
     expect(picked.coins).toBe(Math.min(...offered));
   });
+
+  it('drafts by what was measured, when asked to', () => {
+    const { view } = draftView('coins');
+    const bot = createHeuristicBot({ ...DEFAULT_WEIGHTS, draftBy: 'measured' }, 'measured');
+    const action = bot.chooseMove(view, { rng: createRng(1), budget: {} });
+    // Light Cavalry, Scout and Mercenary top the table; whichever of them is in
+    // the pool must be the pick, and the coin count must not decide it.
+    const offered = view.legal.map((a) => (a as { unit: UnitId }).unit);
+    const best = offered.reduce((a, b) => (VALUE_ORDER.indexOf(a) < VALUE_ORDER.indexOf(b) ? a : b));
+    expect((action as { unit: UnitId }).unit).toBe(best);
+  });
 });
+
+
+/** The measured order, highest win rate first. Kept beside the table it checks. */
+const VALUE_ORDER: UnitId[] = [
+  'lightCavalry',
+  'scout',
+  'mercenary',
+  'cavalry',
+  'royalGuard',
+  'warriorPriest',
+  'pikeman',
+  'crossbowman',
+  'archer',
+  'knight',
+  'marshal',
+  'ensign',
+  'lancer',
+  'swordsman',
+  'berserker',
+  'footman',
+];
+

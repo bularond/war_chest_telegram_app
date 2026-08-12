@@ -67,14 +67,20 @@ export interface HeuristicWeights {
    * deals a draft by default while every experiment so far has been played on
    * dealt units.
    */
-  readonly draftBy: 'coins' | 'scarcity' | 'random';
+  readonly draftBy: 'coins' | 'scarcity' | 'random' | 'measured';
 }
 
 export const DEFAULT_WEIGHTS: HeuristicWeights = {
   attackBeforeControl: true,
   preferKills: false,
   quick: false,
-  draftBy: 'coins',
+  // The largest single gain this project has measured: 110 games, 69.1%,
+  // +140 Elo. Confirmed from the other side on fresh seeds — going back to the
+  // coin count costs 198 Elo (62 games, 24.2%), and drafting at random costs
+  // 191 (64 games, 25.0%). Those two being equal is the point: the coin count
+  // says nothing about strength, so the old rule was choosing at random with
+  // extra steps.
+  draftBy: 'measured',
 };
 
 /**
@@ -419,6 +425,50 @@ function maneuverRecency(view: GameView): Map<UnitId, number> {
 }
 
 /**
+ * How often each unit was on the winning side, measured rather than judged.
+ *
+ * 2220 games of the search playing itself at 200 iterations a move, units dealt
+ * at random, four a side — two runs pooled, the second played by a bot that had
+ * changed since the first. They agree within their intervals (±2.9) everywhere
+ * but the Mercenary, which moved nine points, so the loop that worried me —
+ * the bot measures the units, the table changes the draft, the changed bot
+ * measures again — settles in one turn. The pooled number is the better
+ * estimate simply for resting on more games. A unit's number is confounded by the three it was
+ * dealt alongside and the four it faced, so this ranks units under random
+ * partners — the right first question, and not the last one.
+ *
+ * **It has to be measured under the player it is for.** The same count under the
+ * heuristic gives a different order and twice the spread: the Knight leads at
+ * 62.9% there and sits tenth at 47.5% here, the Royal Guard is last at 24.7%
+ * there and fifth at 52.2% here. The heuristic cannot use the Royal Coin, so it
+ * calls the Royal Guard weak; that is a fact about the heuristic. Strength is a
+ * property of the player holding the unit.
+ *
+ * And it explains why the draft never mattered before: by coin count the average
+ * is 49.8% for the four-coin units against 50.0% for the five-coin ones. The
+ * rule the bot was using — take what the box prints most of — reads a number
+ * that carries no information about strength.
+ */
+const MEASURED_VALUE: Readonly<Partial<Record<UnitId, number>>> = {
+  lightCavalry: 0.598,
+  scout: 0.593,
+  cavalry: 0.573,
+  mercenary: 0.553,
+  royalGuard: 0.528,
+  pikeman: 0.516,
+  warriorPriest: 0.508,
+  crossbowman: 0.492,
+  knight: 0.483,
+  archer: 0.483,
+  marshal: 0.468,
+  lancer: 0.462,
+  ensign: 0.445,
+  berserker: 0.44,
+  swordsman: 0.435,
+  footman: 0.413,
+};
+
+/**
  * Drafting is not in the chart — its AI is dealt a fixed list of seven — and it
  * has never been measured here either, which is a gap the size of the opening:
  * a lobby deals a draft unless it is told otherwise.
@@ -431,9 +481,15 @@ function maneuverRecency(view: GameView): Map<UnitId, number> {
 function draftPick(
   legal: readonly GameAction[],
   rng: RngState,
-  by: 'coins' | 'scarcity' | 'random',
+  by: 'coins' | 'scarcity' | 'random' | 'measured',
 ): GameAction {
   if (by === 'random') return legal[nextInt(rng, legal.length)] as GameAction;
+  if (by === 'measured') {
+    // A unit nobody measured — an expansion this table does not cover — counts
+    // as average rather than as worthless.
+    const pool = largest(legal, (a) => ('unit' in a ? (MEASURED_VALUE[a.unit as UnitId] ?? 0.5) : 0));
+    return pool[nextInt(rng, pool.length)] as GameAction;
+  }
   const coins = (a: GameAction) => ('unit' in a ? UNITS[a.unit as UnitId].coins : 0);
   const pool = by === 'coins' ? largest(legal, coins) : smallest(legal, (a) => coins(a) || 99);
   return pool[nextInt(rng, pool.length)] as GameAction;
