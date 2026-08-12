@@ -67,7 +67,7 @@ export interface HeuristicWeights {
    * deals a draft by default while every experiment so far has been played on
    * dealt units.
    */
-  readonly draftBy: 'coins' | 'scarcity' | 'random' | 'measured';
+  readonly draftBy: 'coins' | 'scarcity' | 'random' | 'measured' | 'measured-all';
 }
 
 export const DEFAULT_WEIGHTS: HeuristicWeights = {
@@ -469,6 +469,48 @@ const MEASURED_VALUE: Readonly<Partial<Record<UnitId, number>>> = {
 };
 
 /**
+ * The same count over all 28 units, played with the three expansions out: 660
+ * games, about 190 appearances each, so ±7 points on any one of them — noisier
+ * than the base table and covering four times the units.
+ *
+ * It is a different game, not an extension of the same one. A pool of eight
+ * drawn from 28 asks a unit to beat different company than a pool drawn from 16,
+ * and the numbers say so: the Crossbowman is 49.2% in the base game and 44.5%
+ * here, the Cavalry 57.3% and 51.8%. What holds across both is the Light Cavalry
+ * on top and the Footman at the bottom.
+ */
+const MEASURED_VALUE_ALL: Readonly<Partial<Record<UnitId, number>>> = {
+  lightCavalry: 0.7,
+  skirmisher: 0.606,
+  bannerman: 0.594,
+  mercenary: 0.586,
+  pikeman: 0.582,
+  herald: 0.544,
+  scout: 0.542,
+  earl: 0.538,
+  cavalry: 0.518,
+  warriorPriest: 0.513,
+  infiltrator: 0.51,
+  royalGuard: 0.5,
+  knight: 0.5,
+  siegeTower: 0.494,
+  warWagon: 0.492,
+  bishop: 0.484,
+  marshal: 0.469,
+  archer: 0.465,
+  ensign: 0.462,
+  lancer: 0.459,
+  trebuchet: 0.456,
+  berserker: 0.449,
+  crossbowman: 0.445,
+  assassin: 0.44,
+  sapper: 0.436,
+  saboteur: 0.424,
+  swordsman: 0.423,
+  footman: 0.39,
+};
+
+/**
  * Drafting is not in the chart — its AI is dealt a fixed list of seven — and it
  * has never been measured here either, which is a gap the size of the opening:
  * a lobby deals a draft unless it is told otherwise.
@@ -481,9 +523,13 @@ const MEASURED_VALUE: Readonly<Partial<Record<UnitId, number>>> = {
 function draftPick(
   legal: readonly GameAction[],
   rng: RngState,
-  by: 'coins' | 'scarcity' | 'random' | 'measured',
+  by: 'coins' | 'scarcity' | 'random' | 'measured' | 'measured-all',
 ): GameAction {
   if (by === 'random') return legal[nextInt(rng, legal.length)] as GameAction;
+  if (by === 'measured-all') {
+    const pool = largest(legal, (a) => ('unit' in a ? (MEASURED_VALUE_ALL[a.unit as UnitId] ?? 0.5) : 0));
+    return pool[nextInt(rng, pool.length)] as GameAction;
+  }
   if (by === 'measured') {
     // A unit nobody measured — an expansion this table does not cover — counts
     // as average rather than as worthless.

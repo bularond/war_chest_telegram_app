@@ -2,6 +2,32 @@
   "note": "Read before every experiment: proposals can be appended while the lab runs.",
   "proposals": [
     {
+      "id": "draft-all-reverse",
+      "note": "Back to the base-game table, in an expansion draft, on fresh seeds. Written as a reversal because a repeat of an accepted setting resolves to 'nothing to change' — three times now I have queued one anyway.",
+      "knobs": {
+        "draftBy": "measured"
+      },
+      "draftMode": "draft",
+      "sets": [
+        "nobility",
+        "siege",
+        "nightfall"
+      ]
+    },
+    {
+      "id": "draft-all-vs-base",
+      "note": "Two measured tables against each other, in an expansion draft. The baseline drafts by the base-game table, which has nothing to say about twelve of the 28 units and calls them average; this one drafts by a table measured in that same 28-unit game. It isolates what the extension is worth — comparing either of them against the coin rule would not, since the base table already helps.",
+      "knobs": {
+        "draftBy": "measured-all"
+      },
+      "draftMode": "draft",
+      "sets": [
+        "nobility",
+        "siege",
+        "nightfall"
+      ]
+    },
+    {
       "id": "draft-pooled-check",
       "note": "The pooled table against the old rule, in draft mode. The table itself changed only by swaps of neighbours inside their confidence intervals, so this is not a test of the ordering — it is a check that replacing an estimate with a better-measured one did not break anything. A repeat of the 24% the coin rule scored is the expected outcome.",
       "knobs": {

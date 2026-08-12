@@ -18,7 +18,7 @@ import { actingBotSeat, BotRunner, DEFAULT_BOT_RUNNER, newBotRng } from './bot-r
 import { loadConfig } from './config.js';
 import { Store } from './db.js';
 import { RoomError, Rooms, type Lobby, type Member } from './rooms.js';
-import { displayName, parseUser, verifyInitData } from './telegram.js';
+import { botIdOf, displayName, parseUser, verifyInitData } from './telegram.js';
 
 const config = loadConfig();
 const store = new Store(config.dbPath);
@@ -153,8 +153,14 @@ function profileFor(user: Member) {
 
 function authenticate(msg: Extract<ClientMessage, { t: 'auth' }>): Member {
   if (config.botToken) {
-    const user = verifyInitData(msg.initData, config.botToken);
-    if (!user) throw new RoomError('auth', 'Не удалось проверить подпись Telegram');
+    const result = verifyInitData(msg.initData, config.botToken);
+    if (!result.ok) {
+      // The client shows this to the player, and the player reads it out to
+      // whoever runs the server: it is the whole diagnosis in one word.
+      app.log.warn({ reason: result.reason }, 'Telegram launch rejected');
+      throw new RoomError('auth', `Не удалось проверить подпись Telegram: ${result.reason}`);
+    }
+    const { user } = result;
     store.upsertUser({
       id: user.id,
       displayName: displayName(user),
@@ -313,4 +319,9 @@ if (existsSync(config.clientDir)) {
 await app.listen({ port: config.port, host: config.host });
 if (config.devAuth) {
   app.log.warn('TELEGRAM_BOT_TOKEN is not set — running with unverified dev auth');
+} else {
+  // Which bot the token belongs to. Launches signed by any other bot will be
+  // turned away, and this number next to the one in BotFather is the fastest
+  // way to see that that is what is happening.
+  app.log.info({ bot: botIdOf(config.botToken!) }, 'Telegram launches are verified');
 }

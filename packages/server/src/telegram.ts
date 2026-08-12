@@ -20,10 +20,31 @@ export interface TelegramUser {
 /** How old a launch may be before we reject it. */
 const MAX_AGE_SECONDS = 24 * 60 * 60;
 
-export function verifyInitData(initData: string, botToken: string): TelegramUser | null {
+/**
+ * Why a launch was turned away. All of these look the same from the outside —
+ * the app asks you to sign in again and again — and they are fixed in
+ * completely different places, so the server has to be able to say which one
+ * it was without anyone attaching a debugger to a phone.
+ */
+export type AuthFailure =
+  /** Nothing was signed: the page is not running inside Telegram at all. */
+  | 'no-init-data'
+  /** Launch parameters without a signature. */
+  | 'no-hash'
+  /** Signed by a different bot than TELEGRAM_BOT_TOKEN belongs to. */
+  | 'bad-signature'
+  /** Older than a day: a Mini App left open, or a clock that is far off. */
+  | 'expired'
+  /** Signature checks out, but Telegram named no user. */
+  | 'no-user';
+
+export type AuthResult = { ok: true; user: TelegramUser } | { ok: false; reason: AuthFailure };
+
+export function verifyInitData(initData: string, botToken: string): AuthResult {
+  if (!initData) return { ok: false, reason: 'no-init-data' };
   const params = new URLSearchParams(initData);
   const hash = params.get('hash');
-  if (!hash) return null;
+  if (!hash) return { ok: false, reason: 'no-hash' };
   params.delete('hash');
   params.delete('signature'); // Ed25519 third-party signature, not part of the HMAC
 
@@ -37,12 +58,24 @@ export function verifyInitData(initData: string, botToken: string): TelegramUser
 
   const a = Buffer.from(expected, 'hex');
   const b = Buffer.from(hash, 'hex');
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return { ok: false, reason: 'bad-signature' };
 
   const authDate = Number(params.get('auth_date') ?? 0);
-  if (!authDate || Date.now() / 1000 - authDate > MAX_AGE_SECONDS) return null;
+  if (!authDate || Date.now() / 1000 - authDate > MAX_AGE_SECONDS) {
+    return { ok: false, reason: 'expired' };
+  }
 
-  return parseUser(params.get('user'));
+  const user = parseUser(params.get('user'));
+  return user ? { ok: true, user } : { ok: false, reason: 'no-user' };
+}
+
+/**
+ * The bot a token belongs to — the number in front of the colon, which is
+ * public. Logged at startup so "the app will not let me in" can be answered by
+ * comparing one number with BotFather instead of by guessing.
+ */
+export function botIdOf(token: string): string {
+  return token.split(':')[0] ?? '?';
 }
 
 export function parseUser(raw: string | null): TelegramUser | null {
