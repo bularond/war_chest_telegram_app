@@ -47,6 +47,10 @@ export const BOTS: Readonly<Record<string, Bot>> = {
  * Bump it whenever a bot's behaviour changes; stage 8 replaces it with the
  * version of the evaluation weights file.
  *
+ * `@6` drafts by a table that covers all 28 units rather than the 16 of the base
+ * box: +53 Elo in games with the expansions out, where twelve units used to be
+ * treated as merely average.
+ *
  * `@5` drafts by measured unit strength instead of by how many coins of a unit
  * the box contains. +140 Elo, and the biggest single step here by a factor of
  * three — because it is the one part of the game the tuning had never touched:
@@ -69,7 +73,7 @@ export const BOTS: Readonly<Record<string, Bot>> = {
  * test. But the levels are budgeted in milliseconds, so a search 2,5–3× faster
  * is a different opponent across the table, and the log has to say which one.
  */
-export const BOT_BUILD = 'search@5';
+export const BOT_BUILD = 'search@6';
 
 export function botNamed(name: string): Bot | undefined {
   return BOTS[name];

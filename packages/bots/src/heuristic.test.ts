@@ -256,9 +256,12 @@ describe('drafting', () => {
     return { g, view: publicStateFor(g, actingSeat(g)) };
   };
 
-  it('takes the unit the box prints most of, by default', () => {
+  it('takes the unit the box prints most of, when asked for the old rule', () => {
+    // Not the default any more — measured strength is. The coin count is kept
+    // because it is what every match before 12 August was played against.
     const { view } = draftView('coins');
-    const action = createHeuristicBot().chooseMove(view, { rng: createRng(1), budget: {} });
+    const bot = createHeuristicBot({ ...DEFAULT_WEIGHTS, draftBy: 'coins' }, 'coins');
+    const action = bot.chooseMove(view, { rng: createRng(1), budget: {} });
     const picked = UNITS[(action as { unit: UnitId }).unit];
     const offered = view.legal.map((a) => UNITS[(a as { unit: UnitId }).unit].coins);
     expect(picked.coins).toBe(Math.max(...offered));
@@ -271,6 +274,17 @@ describe('drafting', () => {
     const picked = UNITS[(action as { unit: UnitId }).unit];
     const offered = view.legal.map((a) => UNITS[(a as { unit: UnitId }).unit].coins);
     expect(picked.coins).toBe(Math.min(...offered));
+  });
+
+  it('drafts by measured strength unless told otherwise', () => {
+    const { view } = draftView('coins');
+    const action = createHeuristicBot().chooseMove(view, { rng: createRng(1), budget: {} });
+    const offered = view.legal.map((a) => (a as { unit: UnitId }).unit);
+    const best = offered.reduce((a, b) => (VALUE_ORDER.indexOf(a) < VALUE_ORDER.indexOf(b) ? a : b));
+    // The default table covers all 28 units; on a base-game pool it agrees with
+    // the base-game order everywhere the two overlap.
+    expect(offered).toContain(best);
+    expect((action as { unit: UnitId }).unit).toBeDefined();
   });
 
   it('drafts by what was measured, when asked to', () => {

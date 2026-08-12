@@ -18,6 +18,7 @@ import { actingBotSeat, BotRunner, DEFAULT_BOT_RUNNER, newBotRng } from './bot-r
 import { loadConfig } from './config.js';
 import { Store } from './db.js';
 import { RoomError, Rooms, type Lobby, type Member } from './rooms.js';
+import { startChat } from './telegram-chat.js';
 import { botIdOf, displayName, parseUser, verifyInitData } from './telegram.js';
 
 const config = loadConfig();
@@ -317,6 +318,23 @@ if (existsSync(config.clientDir)) {
   });
 } else {
   app.log.warn({ dir: config.clientDir }, 'client bundle not found — serving API only');
+}
+
+/*
+ * The chat side of the bot: one greeting with a button into the Mini App, to
+ * whatever anyone says. It needs the address the app answers on from outside,
+ * which the server cannot work out for itself.
+ */
+if (config.botToken && config.publicUrl) {
+  const chat = startChat({
+    token: config.botToken,
+    appUrl: config.publicUrl,
+    log: { info: (o, m) => app.log.info(o, m), warn: (o, m) => app.log.warn(o, m) },
+  });
+  app.addHook('onClose', async () => chat.stop());
+  app.log.info({ appUrl: config.publicUrl }, 'Telegram chat is answering');
+} else if (config.botToken) {
+  app.log.warn('PUBLIC_URL is not set — the bot will not answer in chat');
 }
 
 await app.listen({ port: config.port, host: config.host });

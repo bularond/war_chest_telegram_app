@@ -26,6 +26,7 @@ services:
       DB_PATH: /data/war-chest.db
       NODE_ENV: ${NODE_ENV:-development}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      PUBLIC_URL: ${PUBLIC_URL:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       BOT_WORKERS: ${BOT_WORKERS:-2}
       BOT_THINK_MS: ${BOT_THINK_MS:-600}

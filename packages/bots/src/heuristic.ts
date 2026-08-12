@@ -75,12 +75,14 @@ export const DEFAULT_WEIGHTS: HeuristicWeights = {
   preferKills: false,
   quick: false,
   // The largest single gain this project has measured: 110 games, 69.1%,
-  // +140 Elo. Confirmed from the other side on fresh seeds — going back to the
+  // +140 Elo for drafting by measured strength at all, and +53 more for the
+  // table that covers the expansions (304 games, 57.6%; going back to the
+  // base-game table costs 37 Elo over 244 games). Confirmed from the other side on fresh seeds — going back to the
   // coin count costs 198 Elo (62 games, 24.2%), and drafting at random costs
   // 191 (64 games, 25.0%). Those two being equal is the point: the coin count
   // says nothing about strength, so the old rule was choosing at random with
   // extra steps.
-  draftBy: 'measured',
+  draftBy: 'measured-all',
 };
 
 /**
