@@ -1,0 +1,17 @@
+{
+  "note": "The one repair of 13 August that could be worth Elo, put to a match — written as a reversal, because it is already the default and a proposal that re-states the default resolves to «nothing to change» and prints a REJECT with no games played.\n\nWhat changed. The search named a tree edge by the canonical JSON of the whole action, and a coin action carries `coin`, which is an index into the hand. Two identical coins therefore bought the same move two names and split its statistics between them — 2,1 duplicate edges per distinct move, and merging them moved the chosen move in 41% of the root positions where duplicates appeared. It is worse in the opponent's part of the tree, where the hand is re-dealt every iteration and the slot a Knight lands in is random, so the same reply is a new edge nearly every time. That strikes at what ISMCTS is for: the method earns its keep by accumulating statistics *across* determinizations, and fragmentation is exactly the thing that stops it.\n\nThe same knob also splits `skip`, which meant both «let the blow land on me» as the defender and «stay where I am» as the attacker under one name and one pool of statistics, and makes the rollout's noise draw uniform over moves rather than over hand slots.\n\nA REJECT here says the repair was worth having, from the side that can actually say it.",
+  "proposals": [
+    {
+      "id": "keys-off",
+      "note": "Back to naming an edge by the hand slot. The primary question of the night: everything about this one says it should help, and everything about the five attempts at first-play urgency said the same, which is why it is being asked rather than assumed.",
+      "knobs": { "unitKeys": false },
+      "draftMode": "draft"
+    },
+    {
+      "id": "draws-off",
+      "note": "The rollout policy's own draw, put back over hand slots. Separate from the tree because it is a separate mechanism with the same cause: 16,3% of the drawers the heuristic keeps hold a move that two identical coins can pay for, and inside those the doubled move came up twice as often as its neighbours. Smaller in principle than the tree fragmentation, and it may well measure as nothing — a null here is a real answer and not a failed experiment.",
+      "knobs": { "uniformMoves": false },
+      "draftMode": "draft"
+    }
+  ]
+}

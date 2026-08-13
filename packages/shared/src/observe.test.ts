@@ -343,4 +343,46 @@ describe('the one hidden thing that travels in a pending step', () => {
     expect(theirs.kind).toBe('mustUseCoin');
     expect(theirs.coin).toBeNull();
   });
+
+  /**
+   * And a determinization has to put a card back where the redaction took one
+   * out. A `GameView` may hold blanks; a `GameState` may not, and the engine
+   * reaches that step believing it names a coin.
+   *
+   * The two seats normally coincide, which is why this survived a fuzzer, a
+   * smoke run and a night of matches: it needs somebody *other* than the player
+   * taking the turn to be the one thinking. A defender choosing where to take a
+   * hit is exactly that, and the search then died with «mustUseCoin reached the
+   * engine redacted» — the guard doing its job, one experiment too late.
+   */
+  it('fills the drawn coin back in when the view it was given had it blanked', () => {
+    const state = createGame({
+      id: 'redacted',
+      size: 2,
+      seed: 3,
+      draftMode: 'random',
+      seats: [
+        { userId: 'a', displayName: 'A' },
+        { userId: 'b', displayName: 'B' },
+      ],
+      fixedUnits: [
+        ['warriorPriest', 'swordsman', 'scout', 'footman'],
+        ['knight', 'cavalry', 'pikeman', 'archer'],
+      ],
+    });
+    state.turn = 0;
+    // Seat 1 is the one asked to think, and seat 0's step is blanked for it.
+    const view = publicStateFor(state, 1);
+    const blanked = {
+      ...view,
+      pending: [{ kind: 'mustUseCoin', coin: null, source: 'warriorPriest' }],
+    } as unknown as GameView;
+
+    const sample = sampleDeterminization(blanked, createRng(5));
+    const step = sample.pending.at(-1) as { kind: string; coin: unknown };
+    expect(step.kind).toBe('mustUseCoin');
+    expect(step.coin).not.toBeNull();
+    // And the guess is a coin that player is actually holding in this sample.
+    expect(sample.players[0]!.hand).toContain(step.coin);
+  });
 });

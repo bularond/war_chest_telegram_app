@@ -1,0 +1,26 @@
+{
+  "note": "What the server plays right now: `BASE_WEIGHTS` as of eval@5, and every search knob at its default. Written out in full so a person reading it in the morning does not have to open `eval.ts` to know what a match was measured against. Knobs are deliberately empty — «whatever the defaults are», which is the thing being measured against, and which moves whenever a default is accepted into the code.",
+  "weights": {
+    "version": "eval@5",
+    "markers": 1,
+    "material": 0.7,
+    "reserve": 0.48,
+    "approach": 0.41,
+    "scarcity": 0,
+    "reach": 0,
+    "worth": 0,
+    "circulation": 0,
+    "attrition": 0,
+    "traded": 0,
+    "bolster": 0,
+    "proximity": 0,
+    "proximityWalk": 0,
+    "initiative": 0,
+    "tempo": 0,
+    "hand": 0,
+    "threat": 0,
+    "deadWeight": 0,
+    "idleHand": 0.06
+  },
+  "knobs": {}
+}

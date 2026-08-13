@@ -13,8 +13,8 @@
  */
 
 import { legalActions } from './engine.js';
-import { shuffle, type RngState } from './rng.js';
-import type { GameState, PlayerState, Seat } from './types.js';
+import { nextInt, shuffle, type RngState } from './rng.js';
+import type { GameState, PendingStep, PlayerState, Seat } from './types.js';
 import {
   DECOYS,
   isDecoy,
@@ -155,7 +155,10 @@ export function sampleDeterminization(view: GameView, rng: RngState): GameState 
     control: { ...view.control },
     initiative,
     initiativeMovedThisRound: view.initiativeMovedThisRound,
-    pending: [...view.pending],
+    // A pending step can carry a hidden coin, and one of them does — see
+    // `unredact`. It belongs to whoever is taking the turn, which is not always
+    // whoever is answering.
+    pending: view.pending.map((step) => unredact(step, players[view.turn], rng)),
     draftMode: view.draftMode,
     sets: [...view.sets],
     decrees: view.decrees.map((d) => ({ id: d.id, seals: [...d.seals] })),
@@ -168,6 +171,32 @@ export function sampleDeterminization(view: GameView, rng: RngState): GameState 
     // The search reshuffles bags itself; the seed only has to be reproducible.
     rng: { seed: (rng.seed ^ (view.round * 0x9e3779b1)) >>> 0 },
   };
+}
+
+/**
+ * A pending step can carry hidden information too, and one of them does.
+ *
+ * The Warrior Priest draws a coin that must be spent at once, and the step names
+ * it. `viewFor` blanks that name for everybody but its owner — otherwise the
+ * whole table would read a card out of somebody's hand for one window. But a
+ * determinization is a *state*, and a state has no blanks: the engine reaches
+ * that step believing it says which coin, and a redacted one stopped the search
+ * outright.
+ *
+ * It surfaces only when the two seats come apart — a defender choosing where to
+ * take a hit answers while the Priest's step waits underneath — which is why it
+ * survived a fuzzer, a smoke run and a night of matches before a lab experiment
+ * found it. The guess is the same one the hand gets: a coin this player is holding
+ * in *this* sample, drawn at random. It has to be one of them, because that is
+ * where the drawn coin went.
+ */
+function unredact(step: PendingStep, owner: PlayerState | undefined, rng: RngState): PendingStep {
+  if (step.kind !== 'mustUseCoin' || step.coin !== null) return step;
+  const hand = owner?.hand ?? [];
+  // The coin was drawn into that hand a moment ago, so an empty one is not a
+  // position this step can be in. Say so rather than invent a coin.
+  if (hand.length === 0) throw new Error('mustUseCoin over an empty hand');
+  return { ...step, coin: hand[nextInt(rng, hand.length)] as CoinId };
 }
 
 function dealPlayer(
