@@ -7,5 +7,7 @@ pub mod arena;
 pub mod args;
 pub mod paths;
 pub mod spec;
+pub mod regress;
+pub mod spsa;
 pub mod sprt;
 pub mod stats;
