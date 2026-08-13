@@ -56,6 +56,7 @@ import type { BotSpec } from './bot-spec.js';
 import { defaultJobs, MatchPool } from './match-pool.js';
 import { DEFAULT_SPSA, gains, perturb, step, tunableKeys, type Weights } from './spsa.js';
 import { percent } from './stats.js';
+import { fromInvocation } from './paths.js';
 
 /**
  * A weights file, checked before a single game is played.
@@ -98,9 +99,9 @@ interface Journal {
   steps: Step[];
 }
 
-const fromPath = arg('from', 'weights/base.json');
-const outPath = arg('out', 'weights/spsa.json');
-const journalPath = arg('journal', `${outPath}.journal.json`);
+const fromPath = fromInvocation(arg('from', 'weights/base.json'));
+const outPath = fromInvocation(arg('out', 'weights/spsa.json'));
+const journalPath = fromInvocation(arg('journal', `${outPath}.journal.json`));
 const heartbeatPath = `${outPath}.heartbeat.json`;
 const iterations = Number(arg('iterations', '150'));
 const pairsPerStep = Number(arg('pairs', '4'));

@@ -41,6 +41,7 @@ import type { BotSpec } from './bot-spec.js';
 import { defaultJobs, MatchPool } from './match-pool.js';
 import { DEFAULT_SPRT, sprt } from './sprt.js';
 import { percent } from './stats.js';
+import { fromInvocation } from './paths.js';
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -68,9 +69,9 @@ interface Journal {
   done: Experiment[];
 }
 
-const fromPath = arg('from', 'weights/base.json');
-const outPath = arg('out', 'weights/tuned.json');
-const journalPath = arg('journal', `${outPath}.journal.json`);
+const fromPath = fromInvocation(arg('from', 'weights/base.json'));
+const outPath = fromInvocation(arg('out', 'weights/tuned.json'));
+const journalPath = fromInvocation(arg('journal', `${outPath}.journal.json`));
 const budgetMs = Number(arg('budget-ms', '250'));
 const maxGames = Number(arg('max-games', '600'));
 const rounds = Number(arg('rounds', '2'));

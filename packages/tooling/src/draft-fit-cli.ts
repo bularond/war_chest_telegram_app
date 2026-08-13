@@ -38,6 +38,7 @@ import { createGame, UNITS, type UnitId, type UnitSet } from '@wc/shared';
 import { writeFileSync } from 'node:fs';
 import { fitDraft, notableSynergies, worthTo, type DraftGame } from './draft-fit.js';
 import { defaultJobs, MatchPool } from './match-pool.js';
+import { fromInvocation } from './paths.js';
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -51,7 +52,8 @@ const sets = setsArg === '' ? [] : (setsArg.split(',') as UnitSet[]);
 const baseSeed = Number(arg('seed', '1'));
 const jobs = Number(arg('jobs', String(defaultJobs())));
 const maxPlies = Number(arg('max-plies', '1200'));
-const outPath = arg('out', '');
+const outRaw = arg('out', '');
+const outPath = outRaw === '' ? '' : fromInvocation(outRaw);
 
 /**
  * Who held what, worked out from the seed rather than reported by the worker.

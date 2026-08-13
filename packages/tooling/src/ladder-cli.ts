@@ -30,21 +30,28 @@
  */
 
 import { readFileSync } from 'node:fs';
-import type { EvalWeights } from '@wc/bots';
+import { BASE_WEIGHTS, type EvalWeights } from '@wc/bots';
 import type { BotSpec, SearchKnobs } from './bot-spec.js';
 import { summarize } from './arena.js';
 import { defaultJobs, MatchPool } from './match-pool.js';
 import { eloDiff, percent } from './stats.js';
+import { fromInvocation } from './paths.js';
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
   return i === -1 ? fallback : (process.argv[i + 1] ?? fallback);
 }
 
-const weightsPath = arg('weights', 'weights/base.json');
-const raw = JSON.parse(readFileSync(weightsPath, 'utf8')) as Record<string, unknown>;
+// No file means the ladder the server actually offers. It used to default to
+// `weights/base.json`, which is a snapshot of eval@3 and has not been what the
+// bot plays since 12 August — so the question "how far apart are the three
+// levels" was being answered about a bot nobody meets.
+const given = arg('weights', '');
+const raw = given
+  ? (JSON.parse(readFileSync(fromInvocation(given), 'utf8')) as Record<string, unknown>)
+  : {};
 // A lab baseline is `{weights, knobs}`; a plain weights file is the weights.
-const weights = (raw.weights ?? raw) as EvalWeights;
+const weights = (raw.weights ?? (given ? raw : BASE_WEIGHTS)) as EvalWeights;
 const knobs = (raw.knobs ?? JSON.parse(arg('knobs', '{}'))) as SearchKnobs;
 const budgets = arg('budgets', '60,250,1000').split(',').map(Number);
 const games = Number(arg('games', '60'));

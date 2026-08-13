@@ -85,6 +85,10 @@ export interface HeuristicWeights {
    * twice as often as its neighbours. The priority lists cannot see it either:
    * they filter and compare, and two entries that agree on every field they read
    * both survive to the end.
+   *
+   * Measured the same way `unitKeys` was, and with the same answer: the reversal
+   * scored 47.5% over 364 games, [42.4 … 52.6]. Not a gain, not a loss, and the
+   * match was not built to resolve anything this small.
    */
   readonly uniformMoves: boolean;
 }

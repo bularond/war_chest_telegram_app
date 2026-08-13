@@ -55,6 +55,7 @@ import { checkPlan, DEFAULT_KNOBS, resolve, type Config, type Proposal, type Wei
 import { defaultJobs, MatchPool } from './match-pool.js';
 import { DEFAULT_SPRT, sprt } from './sprt.js';
 import { eloDiff, percent } from './stats.js';
+import { fromInvocation } from './paths.js';
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -97,8 +98,8 @@ interface Journal {
   round: number;
 }
 
-const planPath = arg('plan', 'weights/night.plan.json');
-const outPrefix = arg('out', 'weights/lab');
+const planPath = fromInvocation(arg('plan', 'weights/night.plan.json'));
+const outPrefix = fromInvocation(arg('out', 'weights/lab'));
 const baselinePath = `${outPrefix}.json`;
 const journalPath = `${outPrefix}.journal.json`;
 const heartbeatPath = `${outPrefix}.heartbeat.json`;

@@ -125,9 +125,20 @@ export interface SearchSettings {
    * Name an edge by the coin's *unit* rather than by the slot it sits in, and
    * tell the two meanings of `skip` apart. See `moveKey`.
    *
-   * Off is what this always did, and it is kept only so the change can be
-   * measured: everything about it says it should help, and everything about the
-   * five attempts at first-play urgency said the same.
+   * **Measured, and it showed nothing.** The reversal — this off, against the
+   * shipping bot at 250 ms a move on dealt drafts — scored 48.5% over 454 games,
+   * an interval of [43.9 … 53.1] or −42 to +22 Elo. The point estimate leans the
+   * right way and the interval swallows it whole.
+   *
+   * That is an answer and not a failed experiment: the test was written with a
+   * 30-Elo threshold, which four hundred games can settle, and separating a
+   * 12-Elo effect from zero needs about 3200. So what is known is that this is
+   * not worth 30 Elo. What it is worth is not known.
+   *
+   * On by default anyway, because a search that cannot tell a move from itself
+   * is wrong whatever the scoreboard says — 2.1 edges per distinct move means
+   * UCB computing its exploration term on a third of the evidence. The knob
+   * stays so a longer match can ask again.
    */
   readonly unitKeys: boolean;
   /**

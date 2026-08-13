@@ -70,6 +70,7 @@ import {
 } from '@wc/shared';
 import { DEFAULT_FIT, fit, fitToValues, logLoss, normalize, valueLoss, type Sample } from './regress.js';
 import { BANK_FEATURES, BANK_UNITS, rosterVector, unitBank } from './unit-bank.js';
+import { fromInvocation } from './paths.js';
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -85,7 +86,7 @@ const draftMode = arg('draft', 'random') as DraftMode;
 const skip = Number(arg('skip', '12'));
 const baseSeed = Number(arg('seed', '1'));
 const steps = Number(arg('steps', String(DEFAULT_FIT.steps)));
-const outPath = arg('out', 'weights/fitted.json');
+const outPath = fromInvocation(arg('out', 'weights/fitted.json'));
 const target = arg('target', 'outcome');
 /**
  * Unlock a weight per unit on top of the ordinary features, and report whether
@@ -105,8 +106,9 @@ if (target !== 'outcome' && target !== 'value') throw new Error('--target is out
  * run at all.
  */
 const searchWeights = ((): EvalWeights => {
-  const path = arg('weights', '');
-  if (!path) return BASE_WEIGHTS;
+  const given = arg('weights', '');
+  if (!given) return BASE_WEIGHTS;
+  const path = fromInvocation(given);
   const raw = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
   const weights = (raw.weights ?? raw) as EvalWeights;
   if (typeof weights.version !== 'string') throw new Error(`${path}: a weights file must carry a version`);

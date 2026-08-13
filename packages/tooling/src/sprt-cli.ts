@@ -28,6 +28,7 @@ import type { BotSpec } from './bot-spec.js';
 import { defaultJobs, MatchPool } from './match-pool.js';
 import { eloDiff, percent, scoreStats } from './stats.js';
 import { DEFAULT_SPRT, sprt, type SprtSettings } from './sprt.js';
+import { fromInvocation } from './paths.js';
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -42,8 +43,9 @@ function loadWeights(path: string): EvalWeights {
   return parsed;
 }
 
-const aPath = arg('a', 'weights/base.json');
-const bPath = arg('b', '');
+const aPath = fromInvocation(arg('a', 'weights/base.json'));
+const bPathRaw = arg('b', '');
+const bPath = bPathRaw === '' ? '' : fromInvocation(bPathRaw);
 if (!bPath) {
   console.error('nothing to test: pass --b <weights file>');
   process.exit(1);
