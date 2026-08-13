@@ -263,11 +263,25 @@ export interface SearchReport {
  * which is the same rule one search uses and for the same reason: a high average
  * over two visits is noise.
  *
- * Independent searches are worth less than one search of the same total size —
- * each rediscovers what the others already know, and none of them can steer by
- * what the others found. Reported in the literature at around half to two
- * thirds of the ideal for this many threads. Half of twelve cores is still six
- * times the search, and the ladder says four times the thinking bought 70 Elo.
+ * **Independent searches are worth far less than one search of the same total
+ * size, and here the discount is brutal.** Measured over 80 positions against a
+ * 40 000-iteration yardstick: eight trees of 1000 iterations are worth about
+ * 1167 iterations in one tree. Fifteen per cent, where the literature reports
+ * half to two thirds — and the literature is about other games. Three ways of
+ * reading the trees were tried, adding up the visits, a majority vote and the
+ * mean score per move, and all three agreed with the yardstick on exactly the
+ * same 66.3% of positions. The rule is not what fails.
+ *
+ * The reason is worth more than the number. Averaging eight independent
+ * estimates should cut the spread by √8; it cut almost nothing. So what the
+ * trees carry is not noise but *bias* — they share an evaluation and a rollout
+ * policy, they make the same mistake, and adding up the same mistake eight times
+ * changes nothing. It is the same finding as «the rollout cannot be removed»
+ * arriving from the other side: what binds this search is the value at the leaf.
+ *
+ * So this is worth about 1.2× the search, or some 13 Elo at 50 Elo a doubling.
+ * It is kept because it is free — the workers were idle — and not because it is
+ * much. `scripts/root-parallel.mjs` re-measures it.
  *
  * A caller may hand in fewer searches than it asked for: one that missed its
  * deadline is dropped and the rest still answer, which is better than the move

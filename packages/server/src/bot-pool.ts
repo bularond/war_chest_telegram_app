@@ -26,7 +26,9 @@ export interface BotPoolOptions {
    *
    * A search used one core and left the other eleven idle. Root parallelism
    * fixes that without a shared tree: several workers search the same position
-   * from different seeds and their visit counts are added up.
+   * from different seeds and their visit counts are added up. It buys about
+   * 1.2× the search and some 13 Elo — measured, and a fifth of what the
+   * literature promised. See `mergeReports`.
    *
    * It is deliberately *opportunistic* — a move takes as many workers as happen
    * to be free and never fewer than one. A quiet server puts the whole machine
