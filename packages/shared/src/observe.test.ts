@@ -18,6 +18,7 @@ import { playRandomGame, randomPolicy } from './playout.js';
 import { createRng } from './rng.js';
 import { createGame } from './setup.js';
 import { apply, isTerminal } from './state.js';
+import type { GameAction } from './types.js';
 import type { GameAction, GameState, Seat } from './types.js';
 import { isDecoy, UNITS, type CoinId, type UnitId, type UnitSet } from './units.js';
 import { viewFor, type GameView } from './view.js';
@@ -287,5 +288,59 @@ describe('a coin that is on no pile at all', () => {
     // And from the other side of the table, where the lift is public but the
     // hand is not.
     expect(() => sampleDeterminization(publicStateFor(g, 1), createRng(2))).not.toThrow();
+  });
+});
+
+describe('the one hidden thing that travels in a pending step', () => {
+  /**
+   * The Warrior Priest draws a coin and must spend it at once, and the step that
+   * says so carries the coin's name. `pending` goes to every seat in full, so
+   * for the length of that window the opponent could read a card straight off a
+   * hand that `viewFor` had just finished hiding.
+   */
+  it('shows the drawn coin to its owner and to nobody else', () => {
+    const state = createGame({
+      id: 'leak',
+      size: 2,
+      seed: 3,
+      draftMode: 'random',
+      seats: [
+        { userId: 'a', displayName: 'A' },
+        { userId: 'b', displayName: 'B' },
+      ],
+      fixedUnits: [
+        ['warriorPriest', 'swordsman', 'scout', 'footman'],
+        ['knight', 'cavalry', 'pikeman', 'archer'],
+      ],
+    });
+    state.units = {};
+    state.turn = 0;
+    const me = state.players[0]!;
+    const spend = () => {
+      const inBag = me.bag.indexOf('warriorPriest');
+      if (inBag !== -1) me.bag.splice(inBag, 1);
+      else me.supply.warriorPriest = (me.supply.warriorPriest as number) - 1;
+    };
+    spend();
+    me.bag.push(...me.hand);
+    me.hand = [];
+    spend();
+    me.hand = ['warriorPriest'];
+    state.units['3,1'] = { unit: 'warriorPriest', team: 0, seat: 0, coins: 1 };
+
+    const control = legalActions(state, 0).find((a) => a.type === 'control');
+    expect(control).toBeDefined();
+    applyAction(state, 0, control as GameAction);
+
+    const step = state.pending[state.pending.length - 1];
+    expect(step?.kind).toBe('mustUseCoin');
+    // The real state holds the coin, and the seat that must spend it sees it.
+    expect((step as { coin: unknown }).coin).not.toBeNull();
+    const mine = publicStateFor(state, 0).pending.at(-1) as { kind: string; coin: unknown };
+    expect(mine.coin).toBe((step as { coin: unknown }).coin);
+    // The other side of the table gets the step without the card.
+    const theirs = publicStateFor(state, 1).pending.at(-1) as { kind: string; coin: unknown };
+    expect(theirs.kind).toBe('mustUseCoin');
+    expect(theirs.coin).toBeNull();
   });
 });

@@ -119,7 +119,12 @@ export function viewFor(state: GameState, seat: Seat, legal: readonly GameAction
     })),
     units: { ...state.units },
     control: { ...state.control },
-    pending: [...state.pending],
+    // Redacted, not copied. The Warrior Priest's drawn coin is the one piece of
+    // hidden information that travels in a pending step, and `pending` goes to
+    // every seat at the table.
+    pending: state.pending.map((step) =>
+      step.kind === 'mustUseCoin' && state.turn !== seat ? { ...step, coin: null } : step,
+    ),
     initiativeMovedThisRound: state.initiativeMovedThisRound,
     decrees: state.decrees.map((d) => ({ id: d.id, seals: [...d.seals] })),
     forts: { ...state.forts },

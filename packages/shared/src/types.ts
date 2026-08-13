@@ -63,8 +63,16 @@ export type PendingStep =
   | { readonly kind: 'optionalMove'; readonly hex: HexId; readonly source: 'swordsman' | 'earl' }
   /** Berserker: pay a coin off the stack to maneuver again. */
   | { readonly kind: 'optionalRepeat'; readonly hex: HexId; readonly source: 'berserker' }
-  /** Warrior Priest: a coin was drawn and must be used right now. */
-  | { readonly kind: 'mustUseCoin'; readonly coin: CoinId; readonly source: 'warriorPriest' }
+  /**
+   * Warrior Priest: a coin was drawn and must be used right now.
+   *
+   * `coin` is `null` in a view built for anybody but its owner. The coin came
+   * out of a bag and went into a hand, and a hand is hidden — but the step
+   * naming it rides in `state.pending`, which every viewer receives in full, so
+   * for one window the table could read a card off the opponent's hand. The
+   * engine itself always holds the real value; only the redaction can be null.
+   */
+  | { readonly kind: 'mustUseCoin'; readonly coin: CoinId | null; readonly source: 'warriorPriest' }
   /** Footman / Mercenary: maneuver with this specific unit, no coin spent. */
   | {
       readonly kind: 'maneuverUnit';

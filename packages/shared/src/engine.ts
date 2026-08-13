@@ -896,6 +896,9 @@ function pendingActions(state: GameState, seat: Seat, step: PendingStep): GameAc
       break;
     }
     case 'mustUseCoin': {
+      // Never null on a real state: only `viewFor` blanks it, and only for a
+      // seat that is not the one being asked to spend it.
+      if (step.coin === null) throw new Error('mustUseCoin reached the engine redacted');
       const me = player(state, seat);
       const idx = me.hand.lastIndexOf(step.coin);
       if (idx >= 0) out.push(...coinActions(state, seat, idx, step.coin));
@@ -1373,6 +1376,7 @@ function applyFollowUp(state: GameState, seat: Seat, action: FollowUpAction): vo
     }
     if (step.kind === 'mustUseCoin') {
       // Only reachable if the coin vanished; treat as passing it.
+      if (step.coin === null) throw new Error('mustUseCoin reached the engine redacted');
       const me = player(state, seat);
       const idx = me.hand.lastIndexOf(step.coin);
       if (idx >= 0) {
