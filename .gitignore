@@ -13,10 +13,17 @@ rulebooks/
 dist-types/
 
 # Live state of a running lab: baseline, journal, heartbeat, log.
+#
+# The prefix is whatever `--out` was given, and these were listed by the one
+# prefix in use at the time — so a run called `fixes` walked straight past them
+# into three commits. The generated shapes are matched by suffix now.
+weights/*.heartbeat.json
+weights/*.journal.json
+weights/*.log
+weights/*.log.*
+weights/lab/
+# The baseline is the exception: `<out>.json` is the same shape as a weights
+# file written by hand, and those are tracked on purpose. It has to be named.
 weights/lab.json
 weights/lab.start.json
-weights/lab.heartbeat.json
-weights/*.journal.json
-weights/lab.log*
-weights/lab/
-weights/*.log
+weights/fixes.json
