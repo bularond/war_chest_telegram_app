@@ -12,7 +12,7 @@ David Thompson, AEG). Монорепозиторий npm workspaces, TypeScript,
 ```bash
 npm install
 npm run typecheck                # tsc -b по всем пяти пакетам
-npm test                         # 127 движок + 110 боты + 87 арена + 23 сервер + 27 клиент
+npm test                         # 129 движок + 116 боты + 87 арена + 26 сервер + 27 клиент
 npm run build                    # shared → bots → server → client
 npm run deploy                   # docker compose up -d --build: один контейнер, том под базу
 npm run dev -w @wc/server        # :8787, node --watch
@@ -96,7 +96,7 @@ nohup caffeinate -i -w $(pgrep -f lab-cli.js | head -1) > /dev/null 2>&1 &
 | `rooms.ts` | Лобби и партии в памяти: `create`, `join`, `start`, `act`, `viewFor`. |
 | `telegram.ts` | Проверка HMAC-подписи `initData` ботовым токеном. |
 | `bot-runner.ts` | Очередь ходов бота: задержка «думает», откат на эвристику, если воркер не ответил. |
-| `bot-pool.ts` | Пул воркеров: лимит одновременных поисков, жёсткий дедлайн, замена зависшего воркера. |
+| `bot-pool.ts` | Пул воркеров: лимит одновременных поисков, жёсткий дедлайн, замена зависшего воркера. Один ход разлетается по всем свободным воркерам — корневой параллелизм, счётчики посещений складываются `mergeReports`. |
 | `bot-worker.ts` | Сам воркер: на входе вид, на выходе ход. Плюс `LEVEL_PLAN` — чем и сколько думает каждый уровень. |
 | `db.ts` | SQLite: профили, история партий и `bot_games`. Лобби и партии в базу не пишутся. |
 | `config.ts` | Переменные окружения. |
