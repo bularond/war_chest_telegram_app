@@ -8,8 +8,8 @@ import {
   FORTIFICATION_LAYOUTS,
   rotate180,
 } from './board.js';
-import { actingSeat, applyAction, canEnter, legalActions } from './engine.js';
-import { createGame } from './setup.js';
+import { actingSeat, applyAction, canEnter, legalActions } from './rules.js';
+import { createGame } from './rules.js';
 import type { GameAction, GameState } from './types.js';
 import type { CoinId, UnitId } from './units.js';
 

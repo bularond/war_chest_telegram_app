@@ -23,7 +23,11 @@
  */
 
 import { createRequire } from 'node:module';
-import type { BotLevel, GameAction, GameView } from '@wc/shared';
+import type {
+  BotLevel,
+  GameAction,
+  GameView,
+} from '@wc/shared';
 
 const require = createRequire(import.meta.url);
 const native = require('@wc/core-native') as {

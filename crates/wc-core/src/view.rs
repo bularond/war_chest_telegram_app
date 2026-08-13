@@ -55,9 +55,15 @@ pub struct GameView {
     pub sets: SetMask,
     pub draft_pool: Vec<UnitId>,
     pub banned: Vec<UnitId>,
-    /// What the log says about recency, without the log. See [`Log`].
+    /// What the log says about recency. A determinization carries this and not
+    /// the log itself: it is the only thing a bot reads out of one, and copying
+    /// several hundred entries per search iteration to answer it would be the
+    /// most expensive thing in the iteration.
     pub last_maneuver: [[u32; UNIT_COUNT]; MAX_SEATS],
     pub log_length: u32,
+    /// The journal, for the screen that shows it. Empty on a state that is not
+    /// recording one — which is every state a match or a search plays on.
+    pub log: Vec<LogEntry>,
     pub winner: Option<Team>,
     /// Legal actions for `you`, empty when it is not your turn.
     pub legal: Vec<Action>,
@@ -84,7 +90,10 @@ pub fn view_for(state: &GameState, seat: Seat, legal: Vec<Action>) -> GameView {
             let mut bag = None;
             if p.seat == seat {
                 let mut sorted = p.bag.clone();
-                sorted.sort();
+                // By name, not by catalog order: it is shown to a person, and
+                // the only thing that matters is that it is *not* the order the
+                // coins will be drawn in.
+                sorted.sort_by_key(|c| c.key());
                 bag = Some(sorted);
             }
             PlayerView {
@@ -150,6 +159,7 @@ pub fn view_for(state: &GameState, seat: Seat, legal: Vec<Action>) -> GameView {
         banned: state.banned.clone(),
         last_maneuver: state.log.last_maneuver,
         log_length: state.log.length,
+        log: state.log.entries.clone(),
         winner: state.winner,
         legal: if seat == acting { legal } else { Vec::new() },
     }

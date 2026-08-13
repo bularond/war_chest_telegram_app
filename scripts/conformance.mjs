@@ -23,6 +23,13 @@
  *   node scripts/conformance.mjs --games 200
  *   node scripts/conformance.mjs --games 40 --sets mix --successors 1
  *
+  * The engine it compared against no longer exists: the TypeScript rules were
+ * deleted once this had run clean, and both sides of the comparison now come
+ * out of the same crate. To re-run it as it was meant, check the pre-port
+ * commit out beside this one:
+ *
+ *   git worktree add ../war_chest_ts 61be27f
+ *
  * Options:
  *   --games N        how many games                        (default 100)
  *   --from N         first seed                            (default 1)

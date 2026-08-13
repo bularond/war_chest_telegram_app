@@ -7,7 +7,11 @@
  * or draws anything — it only places the picture.
  */
 
-import { coinArt, coinName, type CoinId } from '@wc/shared';
+import {
+  coinArt,
+  coinName,
+  type CoinId,
+} from '@wc/shared';
 
 export type Faction = 'black' | 'white';
 

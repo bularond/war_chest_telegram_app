@@ -4,7 +4,15 @@
  * server while somebody else is waiting for their own move.
  */
 
-import { actingSeat, applyAction, createGame, publicStateFor, type GameState } from '@wc/shared';
+import {
+  type GameState,
+} from '@wc/shared';
+import {
+  actingSeat,
+  applyAction,
+  createGame,
+  publicStateFor,
+} from '@wc/shared/rules';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BotPool } from './bot-pool.js';
 import { actingBotSeat, BotRunner, newBotRng, type BotSeat } from './bot-runner.js';

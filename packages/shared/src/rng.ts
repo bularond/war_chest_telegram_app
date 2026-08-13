@@ -1,6 +1,10 @@
 /**
- * Deterministic PRNG. The server owns the seed and never sends it to clients, so
- * bag draws stay hidden while the whole game remains replayable from the log.
+ * Deterministic PRNG, for the seeds this side of the boundary derives.
+ *
+ * The engine has its own — the same mulberry32, in `wc-core` — and it is the one
+ * that shuffles a bag. Nothing here has to agree with it: what is left in
+ * TypeScript is a stream for a test policy to draw from and a way for the server
+ * to derive one bot seed from another, and neither is a rule.
  */
 
 export interface RngState {
@@ -11,7 +15,7 @@ export function createRng(seed: number): RngState {
   return { seed: seed >>> 0 };
 }
 
-/** mulberry32 — small, fast, good enough for shuffling coins. */
+/** mulberry32 — small, fast, and reproducible from the seed. */
 export function nextFloat(rng: RngState): number {
   rng.seed = (rng.seed + 0x6d2b79f5) >>> 0;
   let t = rng.seed;
@@ -22,15 +26,4 @@ export function nextFloat(rng: RngState): number {
 
 export function nextInt(rng: RngState, maxExclusive: number): number {
   return Math.floor(nextFloat(rng) * maxExclusive);
-}
-
-/** Fisher-Yates, in place. */
-export function shuffle<T>(rng: RngState, items: T[]): T[] {
-  for (let i = items.length - 1; i > 0; i--) {
-    const j = nextInt(rng, i + 1);
-    const a = items[i] as T;
-    items[i] = items[j] as T;
-    items[j] = a;
-  }
-  return items;
 }

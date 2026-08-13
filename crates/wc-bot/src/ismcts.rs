@@ -712,6 +712,7 @@ fn blank_state() -> GameState {
         banned: Vec::new(),
         last_maneuver: [[0; wc_core::units::UNIT_COUNT]; MAX_SEATS],
         log_length: 0,
+        log: Vec::new(),
         winner: None,
         legal: Vec::new(),
     };

@@ -1,15 +1,20 @@
 /**
- * Property tests: whatever random play does, the position stays sound and every
- * action the engine offers can actually be played. A search will happily exploit
- * any hole here, so these run over whole games rather than fixed positions.
+ * That the rules reach TypeScript intact.
+ *
+ * The property testing itself lives in `crates/wc-core/tests/fuzz.rs`, where it
+ * belongs and where it runs some thousands of times faster: hundreds of games
+ * across every set combination, both board sizes and all three draft modes, with
+ * every legal action tried on a copy at every ply. What is checked here is the
+ * binding — that a game played through `@wc/shared/rules` is the same game, that
+ * the invariants come back, and that a broken position is still noticed.
  */
 
 import { describe, expect, it } from 'vitest';
-import { markersRemaining } from './engine.js';
-import { checkInvariants } from './invariants.js';
-import { playRandomGame, uniformPolicy } from './playout.js';
+import { markersRemaining } from './rules.js';
+import { checkInvariants } from './rules.js';
+import { playRandomGame, uniformPolicy } from './rules.js';
 import { createRng } from './rng.js';
-import { apply, cloneState, hashState, isTerminal, legalMoves } from './state.js';
+import { apply, cloneState, hashState, isTerminal, legalMoves } from './rules.js';
 import type { GameState } from './types.js';
 import type { UnitSet } from './units.js';
 
@@ -28,13 +33,13 @@ function violations(state: GameState): string[] {
 describe('position invariants', () => {
   it('holds at every step of random games, with every set mix', () => {
     for (const [i, sets] of SET_MIXES.entries()) {
-      for (let seed = 1; seed <= 6; seed++) {
+      for (let seed = 1; seed <= 2; seed++) {
         const rng = createRng(seed * 100 + i);
         const { state } = playRandomGame(
           {
             seed: seed * 100 + i,
             sets,
-            maxPlies: 1200,
+            maxPlies: 400,
             onStep: (s, action, ply) => {
               const bad = violations(s);
               if (bad.length > 0) {
@@ -53,8 +58,8 @@ describe('position invariants', () => {
   });
 
   it('finishes games only on a real win or a declared stalemate', () => {
-    for (let seed = 1; seed <= 12; seed++) {
-      const { state } = playRandomGame({ seed, maxPlies: 1500 }, createRng(seed));
+    for (let seed = 1; seed <= 4; seed++) {
+      const { state } = playRandomGame({ seed, maxPlies: 400 }, createRng(seed));
       if (!isTerminal(state)) continue;
       if (state.winner !== null) {
         expect(markersRemaining(state, state.winner)).toBe(0);
@@ -65,13 +70,13 @@ describe('position invariants', () => {
   });
 
   it('can play every action it offers', () => {
-    for (let seed = 1; seed <= 3; seed++) {
+    for (let seed = 1; seed <= 1; seed++) {
       const rng = createRng(seed);
       playRandomGame(
         {
           seed,
           sets: ['nobility', 'siege', 'nightfall'],
-          maxPlies: 400,
+          maxPlies: 60,
           onStep: (s) => {
             if (isTerminal(s)) return;
             const legal = legalMoves(s);
@@ -90,9 +95,9 @@ describe('position invariants', () => {
   });
 
   it('never dead-ends: an unfinished position always has something to do', () => {
-    for (let seed = 40; seed < 46; seed++) {
+    for (let seed = 40; seed < 42; seed++) {
       const { state } = playRandomGame(
-        { seed, policy: uniformPolicy, maxPlies: 1500 },
+        { seed, policy: uniformPolicy, maxPlies: 400 },
         createRng(seed),
       );
       if (!isTerminal(state)) expect(legalMoves(state).length).toBeGreaterThan(0);

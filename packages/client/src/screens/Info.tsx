@@ -1,6 +1,9 @@
 /** Profile and rules screens. */
 
-import { UNITS, UNIT_IDS } from '@wc/shared';
+import {
+  UNITS,
+  UNIT_IDS,
+} from '@wc/shared';
 import { useState } from 'react';
 import { store, useApp } from '../net.js';
 import { Avatar } from '../ui/Avatar.js';

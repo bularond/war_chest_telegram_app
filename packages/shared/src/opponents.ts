@@ -2,8 +2,8 @@
  * Difficulty levels for a computer opponent.
  *
  * The names live here, next to the rules, because both the server and the
- * client have to agree on them; the bots themselves live in `@wc/bots`, which
- * neither the rules nor the client depend on.
+ * client have to agree on them; the bots themselves live in `wc-bot`,
+ * which the client never loads at all.
  *
  * `BOT_READY` is what this build can actually play. A level that is not ready
  * must never reach the menu, exactly as with the expansion sets.

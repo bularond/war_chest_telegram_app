@@ -512,6 +512,7 @@ pub fn view_to_json(view: &GameView) -> Value {
     out.insert("sets".into(), json!(sets_to_json(view.sets)));
     out.insert("draftPool".into(), json!(units_to_keys(&view.draft_pool)));
     out.insert("banned".into(), json!(units_to_keys(&view.banned)));
+    out.insert("log".into(), Value::Array(view.log.iter().map(log_to_json).collect()));
     out.insert("winner".into(), match view.winner {
         Some(t) => json!(t),
         None => Value::Null,
@@ -710,7 +711,7 @@ pub fn state_from_json(v: &Value) -> Result<GameState, String> {
         fort_supply: v.get("fortSupply").and_then(Value::as_u64).unwrap_or(0) as u8,
         draft_pool: read_units(v.get("draftPool")),
         banned: read_units(v.get("banned")),
-        log: Log::new(true),
+        log: log_from_json(v.get("log")),
         winner: v.get("winner").and_then(Value::as_u64).map(|t| t as Team),
         rng: Rng::new(
             v.get("rng").and_then(|r| r.get("seed")).and_then(Value::as_u64).unwrap_or(0) as u32,
@@ -1005,23 +1006,7 @@ pub fn view_from_json(v: &Value) -> Result<GameView, String> {
 
     // A maneuver is one of three things: move, control, attack. The index is the
     // entry's position in the whole log, which is what "most recently" means.
-    let mut last_maneuver = [[0u32; UNIT_COUNT]; MAX_SEATS];
-    let mut log_length = 0u32;
-    for entry in v.get("log").and_then(Value::as_array).into_iter().flatten() {
-        let kind = entry.get("kind").and_then(Value::as_str).unwrap_or("");
-        let seat = entry.get("seat").and_then(Value::as_u64).unwrap_or(0) as usize;
-        if matches!(kind, "move" | "control" | "attack") && seat < MAX_SEATS {
-            if let Some(unit) = entry
-                .get("params")
-                .and_then(|p| p.get("unit"))
-                .and_then(Value::as_str)
-                .and_then(UnitId::from_key)
-            {
-                last_maneuver[seat][unit as usize] = log_length + 1;
-            }
-        }
-        log_length += 1;
-    }
+    let log = log_from_json(v.get("log"));
 
     Ok(GameView {
         id: Arc::from(v.get("id").and_then(Value::as_str).unwrap_or("")),
@@ -1051,9 +1036,111 @@ pub fn view_from_json(v: &Value) -> Result<GameView, String> {
         sets,
         draft_pool: read_units(v.get("draftPool")),
         banned: read_units(v.get("banned")),
-        last_maneuver,
-        log_length,
+        last_maneuver: log.last_maneuver,
+        log_length: log.length,
+        log: log.entries,
         winner: v.get("winner").and_then(Value::as_u64).map(|t| t as Team),
         legal,
+    })
+}
+
+/// The log, read back.
+///
+/// It has to survive the round trip: a caller that hands a state over, has one
+/// action applied and takes it back is holding the same game, and a game
+/// remembers what happened in it. Losing the log here showed up as a bot that
+/// moved without anything appearing in the journal — the move was made, the
+/// entry was written, and then the next round trip threw it away.
+fn log_from_json(v: Option<&Value>) -> Log {
+    let mut log = Log::new(true);
+    let entries = match v.and_then(Value::as_array) {
+        Some(list) => list,
+        None => return log,
+    };
+    for entry in entries {
+        let kind = match entry.get("kind").and_then(Value::as_str).and_then(log_kind) {
+            Some(k) => k,
+            // An entry this build does not know about still has to hold its
+            // place: `maneuverRecency` counts positions in the whole log.
+            None => {
+                log.push(LogEntry::new(
+                    entry.get("round").and_then(Value::as_u64).unwrap_or(0) as u16,
+                    entry.get("seat").and_then(Value::as_u64).unwrap_or(0) as Seat,
+                    LogKind::Pass,
+                ));
+                continue;
+            }
+        };
+        let mut out = LogEntry::new(
+            entry.get("round").and_then(Value::as_u64).unwrap_or(0) as u16,
+            entry.get("seat").and_then(Value::as_u64).unwrap_or(0) as Seat,
+            kind,
+        );
+        let params = entry.get("params");
+        let text = |key: &str| params.and_then(|p| p.get(key)).and_then(Value::as_str);
+        let number = |key: &str| params.and_then(|p| p.get(key)).and_then(Value::as_u64);
+        if let Some(unit) = text("unit").and_then(UnitId::from_key) {
+            out.unit = unit as u8;
+        }
+        if let Some(unit) = text("target").and_then(UnitId::from_key) {
+            out.target_unit = unit as u8;
+        }
+        if let Some(hex) = text("hex") {
+            out.hex = index_of_id(hex);
+        }
+        if let Some(hex) = text("from") {
+            out.from = index_of_id(hex);
+        }
+        if let Some(hex) = text("to") {
+            out.to = index_of_id(hex);
+        }
+        if let Some(decree) = text("decree").and_then(DecreeId::from_key) {
+            out.decree = decree as u8;
+        }
+        if let Some(coin) = text("coin").and_then(CoinId::from_key) {
+            out.coin = coin.0;
+        }
+        if let Some(team) = number("team") {
+            out.team = team as u8;
+        }
+        log.push(out);
+    }
+    log
+}
+
+fn log_kind(key: &str) -> Option<LogKind> {
+    Some(match key {
+        "ban" => LogKind::Ban,
+        "draft" => LogKind::Draft,
+        "roundStart" => LogKind::RoundStart,
+        "pass" => LogKind::Pass,
+        "unpoison" => LogKind::Unpoison,
+        "returnDecoy" => LogKind::ReturnDecoy,
+        "claimInitiative" => LogKind::ClaimInitiative,
+        "recruit" => LogKind::Recruit,
+        "deploy" => LogKind::Deploy,
+        "bolster" => LogKind::Bolster,
+        "move" => LogKind::Move,
+        "control" => LogKind::Control,
+        "attack" => LogKind::Attack,
+        "tactic" => LogKind::Tactic,
+        "proclaim" => LogKind::Proclaim,
+        "victory" => LogKind::Victory,
+        "razeFort" => LogKind::RazeFort,
+        "poison" => LogKind::Poison,
+        "push" => LogKind::Push,
+        "sacrifice" => LogKind::Sacrifice,
+        "lift" => LogKind::Lift,
+        "spy" => LogKind::Spy,
+        "reinforce" => LogKind::Reinforce,
+        "shove" => LogKind::Shove,
+        "burn" => LogKind::Burn,
+        "deceive" => LogKind::Deceive,
+        "buildFort" => LogKind::BuildFort,
+        "absorb" => LogKind::Absorb,
+        "absorbWagon" => LogKind::AbsorbWagon,
+        "berserkerRepeat" => LogKind::BerserkerRepeat,
+        "stalemate" => LogKind::Stalemate,
+        _ => return None,
     })
 }

@@ -1,6 +1,8 @@
 /** Small shared pieces: back bar, coin, modal, bottom sheet. */
 
-import type { CoinId } from '@wc/shared';
+import type {
+  CoinId,
+} from '@wc/shared';
 import type { ReactNode } from 'react';
 import { Crest, type Faction } from './Crest.js';
 

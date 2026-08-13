@@ -8,6 +8,7 @@
  * fully carried out.
  */
 
+import { DECREE_IDS } from './generated.js';
 import type { LocalizedText } from './units.js';
 
 export type DecreeId =
@@ -81,7 +82,7 @@ export const DECREES: Readonly<Record<DecreeId, DecreeDefinition>> = {
   },
 };
 
-export const DECREE_IDS: readonly DecreeId[] = Object.keys(DECREES) as DecreeId[];
+export { DECREE_IDS };
 
 /** Decrees dealt face up for a game, and Seals each side may spend. */
 export const DECREES_IN_PLAY = 3;

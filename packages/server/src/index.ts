@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
-import { BOT_BUILD } from '@wc/bots';
+import { botBuild } from '@wc/shared/rules';
 import {
   BOT_LEVELS,
   BOT_READY,
@@ -104,7 +104,7 @@ function recordIfFinished(lobby: Lobby): void {
         gameId: game.id,
         userId: human.userId,
         level: lobby.vsBot,
-        botBuild: BOT_BUILD,
+        botBuild: botBuild(),
         won: game.winner === human.team,
         draw: game.winner === null,
         plies: game.log.length,

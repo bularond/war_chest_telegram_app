@@ -3,9 +3,9 @@
 import { describe, expect, it } from 'vitest';
 import { STARTING_LOCATIONS } from './board.js';
 import { DECREE_IDS, type DecreeId } from './decrees.js';
-import { applyAction, canProclaim, legalActions, sealsLeft } from './engine.js';
-import { checkInvariants } from './invariants.js';
-import { createGame } from './setup.js';
+import { applyAction, canProclaim, legalActions, sealsLeft } from './rules.js';
+import { checkInvariants } from './rules.js';
+import { createGame } from './rules.js';
 import type { GameAction, GameState } from './types.js';
 import type { CoinId, UnitId } from './units.js';
 
@@ -199,7 +199,7 @@ describe('proclaiming', () => {
     applyAction(g, 0, find(g, 0, (a) => a.type === 'proclaim' && a.decree === 'reinforce'));
     applyAction(g, 0, find(g, 0, (a) => a.type === 'followReinforce' && a.unit === 'archer'));
     expect(g.players[0]!.supply.archer).toBe(supplyBefore + 1);
-    expect(g.players[0]!.removed.archer).toBe(0);
+    expect(g.players[0]!.removed.archer ?? 0).toBe(0);
   });
 });
 

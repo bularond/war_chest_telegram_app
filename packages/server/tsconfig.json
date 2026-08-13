@@ -7,5 +7,5 @@
     "lib": ["ES2022"]
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../shared" }, { "path": "../bots" }]
+  "references": [{ "path": "../shared" }]
 }

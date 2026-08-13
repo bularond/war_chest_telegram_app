@@ -1,5 +1,8 @@
 /**
- * The redacted state a single player is allowed to see.
+ * The shape of the redacted state a single player is allowed to see.
+ *
+ * The redaction itself is a rule and happens in `wc-core`; what is here is the
+ * type, so the client can read a view without a rules engine anywhere near it.
  *
  * War Chest has three kinds of hidden information: the contents of a bag, the
  * coins in an opponent's hand, and coins discarded facedown. Everything else —
@@ -8,7 +11,6 @@
 
 import type { DecreeInPlay } from './decrees.js';
 import type { BotLevel } from './opponents.js';
-import { actingSeat, markersRemaining } from './engine.js';
 import type { HexId } from './hex.js';
 import type {
   DraftMode,
@@ -79,62 +81,4 @@ export interface GameView {
   readonly winner: Team | null;
   /** Legal actions for `you`, empty when it is not your turn. */
   readonly legal: readonly GameAction[];
-}
-
-export function viewFor(state: GameState, seat: Seat, legal: readonly GameAction[]): GameView {
-  // The Spy decree lets the proclaimer look at a hand that is otherwise hidden,
-  // so reveal exactly that hand for exactly as long as the step is unresolved.
-  const spying = state.turn === seat ? state.pending[state.pending.length - 1] : undefined;
-  const revealed = spying?.kind === 'decreeSpy' ? spying.target : null;
-
-  return {
-    id: state.id,
-    size: state.size,
-    phase: state.phase,
-    round: state.round,
-    turn: state.turn,
-    acting: actingSeat(state),
-    you: seat,
-    players: state.players.map((p) => ({
-      seat: p.seat,
-      team: p.team,
-      userId: p.userId,
-      displayName: p.displayName,
-      avatarUrl: p.avatarUrl ?? null,
-      ...(p.bot ? { bot: p.bot } : {}),
-      units: [...p.units],
-      bagCount: p.bag.length,
-      handCount: p.hand.length,
-      ...(p.seat === seat || p.seat === revealed ? { hand: [...p.hand] } : {}),
-      ...(p.seat === seat ? { bag: [...p.bag].sort() } : {}),
-      discard: p.discard.map((d) => ({
-        coin: d.faceUp || p.seat === seat ? d.coin : null,
-        faceUp: d.faceUp,
-      })),
-      supply: { ...p.supply },
-      removed: { ...p.removed },
-      seals: p.seals,
-      markersRemaining: markersRemaining(state, p.team),
-      hasInitiative: p.hasInitiative,
-    })),
-    units: { ...state.units },
-    control: { ...state.control },
-    // Redacted, not copied. The Warrior Priest's drawn coin is the one piece of
-    // hidden information that travels in a pending step, and `pending` goes to
-    // every seat at the table.
-    pending: state.pending.map((step) =>
-      step.kind === 'mustUseCoin' && state.turn !== seat ? { ...step, coin: null } : step,
-    ),
-    initiativeMovedThisRound: state.initiativeMovedThisRound,
-    decrees: state.decrees.map((d) => ({ id: d.id, seals: [...d.seals] })),
-    forts: { ...state.forts },
-    fortSupply: state.fortSupply,
-    draftMode: state.draftMode,
-    sets: [...state.sets],
-    draftPool: [...state.draftPool],
-    banned: [...state.banned],
-    log: [...state.log],
-    winner: state.winner,
-    legal: seat === actingSeat(state) ? legal : [],
-  };
 }

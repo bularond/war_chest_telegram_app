@@ -416,3 +416,146 @@ impl Task for Move {
         Ok(output)
     }
 }
+
+// ---------------------------------------------------------------------------
+// Questions about a position
+// ---------------------------------------------------------------------------
+//
+// Each of these is one rule, asked without playing anything. The client uses
+// some of them to explain a highlighted hex, and the rule tests use all of them
+// — which is the point: those tests were written against the TypeScript engine
+// and now hold the Rust one to the same answers, card by card.
+
+fn state_of(text: &str) -> Result<GameState> {
+    state_from_json(&parse(text)?).map_err(fail)
+}
+
+#[napi]
+pub fn deploy_targets_of(state: String, seat: u32, unit: String) -> Result<Vec<String>> {
+    let state = state_of(&state)?;
+    let unit = UnitId::from_key(&unit).ok_or_else(|| fail(format!("unknown unit {unit}")))?;
+    Ok(wc_core::engine::deploy_targets(&state, seat as Seat, unit)
+        .into_iter()
+        .map(wc_core::board::id_of)
+        .collect())
+}
+
+#[napi]
+pub fn markers_remaining_of(state: String, team: u32) -> Result<i32> {
+    Ok(state_of(&state)?.markers_remaining(team as u8))
+}
+
+#[napi]
+pub fn decoy_available_in(state: String, decoy: String) -> Result<bool> {
+    let state = state_of(&state)?;
+    let coin = wc_core::units::CoinId::from_key(&decoy)
+        .ok_or_else(|| fail(format!("unknown coin {decoy}")))?;
+    Ok(wc_core::engine::decoy_available(&state, coin))
+}
+
+/// Where a poisoner's counter currently sits, if it is on the board at all.
+#[napi]
+pub fn poisoned_hex_in(state: String, poisoner: String) -> Result<Option<String>> {
+    let state = state_of(&state)?;
+    let poison = match poisoner.as_str() {
+        "assassin" => wc_core::types::Poison::Assassin,
+        "saboteur" => wc_core::types::Poison::Saboteur,
+        other => return Err(fail(format!("no poisoner called {other}"))),
+    };
+    Ok(wc_core::engine::poisoned_hex(&state, poison).map(wc_core::board::id_of))
+}
+
+#[napi]
+pub fn can_proclaim_in(state: String, seat: u32, decree: String) -> Result<bool> {
+    let state = state_of(&state)?;
+    let decree = wc_core::DecreeId::from_key(&decree)
+        .ok_or_else(|| fail(format!("unknown decree {decree}")))?;
+    Ok(wc_core::engine::can_proclaim(&state, seat as Seat, decree))
+}
+
+#[napi]
+pub fn seals_left_in(state: String, team: u32) -> Result<u32> {
+    Ok(wc_core::engine::seals_left(&state_of(&state)?, team as u8))
+}
+
+#[napi]
+pub fn can_enter_in(state: String, team: u32, hex: String) -> Result<bool> {
+    let state = state_of(&state)?;
+    Ok(wc_core::engine::can_enter(&state, team as u8, wc_core::board::index_of_id(&hex)))
+}
+
+/// The multiset of coins that must be somewhere in a seat's hidden piles.
+#[napi]
+pub fn hidden_coins_in(view: String, seat: u32) -> Result<String> {
+    let view = view_from_json(&parse(&view)?).map_err(fail)?;
+    let hidden = wc_core::observe::hidden_coins(&view, seat as Seat).map_err(fail)?;
+    Ok(serde_json::json!({
+        "seat": hidden.seat,
+        "known": hidden.known.iter().map(|c| c.key()).collect::<Vec<_>>(),
+        "unknown": hidden.unknown,
+        "bagCount": hidden.bag_count,
+        "handCount": hidden.hand_count,
+        "facedownCount": hidden.facedown_count,
+    })
+    .to_string())
+}
+
+/// One full state consistent with everything the view shows.
+///
+/// The seed goes in and comes back out, because the caller owns the stream: a
+/// search that drew from it would otherwise replay the same guess every time.
+#[napi]
+pub fn determinize(view: String, seed: u32) -> Result<String> {
+    let view = view_from_json(&parse(&view)?).map_err(fail)?;
+    let mut rng = Rng::new(seed);
+    let state = wc_core::observe::sample_determinization(&view, &mut rng).map_err(fail)?;
+    Ok(serde_json::json!({ "state": state_to_json(&state), "seed": rng.seed }).to_string())
+}
+
+/// A name for the *move*, as against the action: the coin is named by its unit
+/// rather than by the hand slot it sits in, and the two meanings of `skip` are
+/// told apart by the step being answered.
+#[napi]
+pub fn move_key_of(action: String, hand: Option<String>, pending: Option<String>) -> Result<String> {
+    let action = action_from_json(&parse(&action)?).map_err(fail)?;
+    let hand: Option<Vec<wc_core::units::CoinId>> = match hand {
+        Some(text) => Some(
+            parse(&text)?
+                .as_array()
+                .ok_or_else(|| fail("a hand is a list of coins"))?
+                .iter()
+                .map(|c| {
+                    c.as_str()
+                        .and_then(wc_core::units::CoinId::from_key)
+                        .ok_or_else(|| fail(format!("unknown coin {c}")))
+                })
+                .collect::<Result<Vec<_>>>()?,
+        ),
+        None => None,
+    };
+    let steps: Option<Vec<wc_core::types::PendingStep>> = match pending {
+        Some(text) => Some(
+            parse(&text)?
+                .as_array()
+                .ok_or_else(|| fail("pending is a list of steps"))?
+                .iter()
+                .map(|s| wc_core::json::step_from_json(s).map_err(fail))
+                .collect::<Result<Vec<_>>>()?,
+        ),
+        None => None,
+    };
+    // Fifty bits: a JSON number would round it, so it travels as text.
+    Ok(wc_core::state::move_key(action, hand.as_deref(), steps.as_deref()).to_string())
+}
+
+/// The canonical text of a state, and its hash. Identity for tests and
+/// transposition keys — not a checksum against a hostile client.
+#[napi]
+pub fn serialize_state(state: String) -> Result<String> {
+    Ok(state_to_json(&state_of(&state)?).to_string())
+}
+
+#[napi]
+pub fn hash_state(state: String) -> Result<String> {
+    Ok(wc_core::state::hash_bytes(state_to_json(&state_of(&state)?).to_string().as_bytes()))
+}
