@@ -21,6 +21,12 @@ RUN npm ci
 
 COPY tsconfig.base.json ./
 COPY packages ./packages
+# `npm run build` runs `scripts/no-lab-running.mjs` first — a workbench guard
+# that refuses to rewrite `dist` while a tuning run is reading it. There is no
+# lab in a container and it exits at once, but the file has to be here: the
+# alternative is a build command that means one thing on a laptop and another
+# on the host, which is how a client and a server come to disagree.
+COPY scripts ./scripts
 # shared → bots → server → client. The bots are not optional: the server's
 # worker imports them, and a missing build only shows up on the bot's turn.
 RUN npm run build && npm prune --omit=dev
