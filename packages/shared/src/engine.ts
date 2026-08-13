@@ -60,11 +60,11 @@ export function boardHexes(state: GameState): ReadonlySet<HexId> {
 }
 
 export function isOnBoard(state: GameState, hex: HexId): boolean {
-  return boardFor(state.size).hexes.includes(hex);
+  return boardFor(state.size).hexSet.has(hex);
 }
 
 export function isLocation(state: GameState, hex: HexId): boolean {
-  return boardFor(state.size).locations.includes(hex);
+  return boardFor(state.size).locationSet.has(hex);
 }
 
 export function unitAt(state: GameState, hex: HexId): UnitStack | undefined {
@@ -86,10 +86,23 @@ export function markersRemaining(state: GameState, team: Team): number {
   return boardFor(state.size).controlMarkers - placed;
 }
 
-function adjacent(state: GameState, hex: HexId): HexId[] {
-  return neighbors(fromId(hex))
-    .map(toId)
-    .filter((h) => isOnBoard(state, h));
+/**
+ * A hex's neighbours, read off the board rather than computed.
+ *
+ * This used to parse the id, allocate six coordinate objects, concatenate six
+ * new ids and then scan the board's hex list six times to drop the ones that
+ * fell off the edge — 116 ns, against 7 ns for the lookup. The board does not
+ * change during a game, so every one of those calls was the same answer worked
+ * out again. It is called from twenty-one places in this file, most of them
+ * inside the loop that generates legal moves.
+ *
+ * The array is shared and must not be modified. Every caller filters, iterates
+ * or asks `some` of it, and all three make their own copy or none at all.
+ */
+const NO_NEIGHBOURS: readonly HexId[] = [];
+
+function adjacent(state: GameState, hex: HexId): readonly HexId[] {
+  return boardFor(state.size).neighbors.get(hex) ?? NO_NEIGHBOURS;
 }
 
 /**
@@ -108,7 +121,7 @@ function canPassThrough(state: GameState, team: Team, hex: HexId): boolean {
   return canEnter(state, team, hex) && !state.forts[hex];
 }
 
-function emptyNeighbors(state: GameState, hex: HexId): HexId[] {
+function emptyNeighbors(state: GameState, hex: HexId): readonly HexId[] {
   const team = state.units[hex]?.team;
   return adjacent(state, hex).filter((h) =>
     team === undefined ? !state.units[h] : canEnter(state, team, h),
@@ -368,11 +381,18 @@ function canControlHere(state: GameState, hex: HexId): boolean {
   return markersRemaining(state, stack.team) > 0;
 }
 
-function tacticActions(state: GameState, seat: Seat, coinIndex: number, unit: UnitId): CoinAction[] {
+function tacticActions(
+  state: GameState,
+  seat: Seat,
+  coinIndex: number,
+  unit: UnitId,
+  /** Where that unit stands, when the caller has already worked it out. */
+  deployed?: readonly HexId[],
+): CoinAction[] {
   const spec = UNITS[unit].tactic;
   if (!spec) return [];
   const out: CoinAction[] = [];
-  const sources = deployedUnits(state, seat, unit);
+  const sources = deployed ?? deployedUnits(state, seat, unit);
 
   for (const from of sources) {
     if (isPoisoned(state, from)) continue;
@@ -652,8 +672,29 @@ export function legalActions(state: GameState, seat: Seat): GameAction[] {
   const me = player(state, seat);
   const out: GameAction[] = [];
 
+  // The work is done once per *distinct* coin; the list still has an entry per
+  // slot.
+  //
+  // Two coins of one unit differ only in a number, so the second slot was
+  // scanning the board, walking the neighbours and testing every deploy target
+  // all over again to produce a set of actions identical to the first. Measured
+  // over 4230 decisions, 11.2% of the generation was that duplicate.
+  //
+  // The list itself keeps every slot, and that is not a compromise — it is the
+  // interface. The client marks a coin in your hand playable when some legal
+  // action names *its* index, so dropping the duplicate entries greys out the
+  // second Knight you are holding. Copying the answer across is cheap: a shallow
+  // object per action, against a board scan per coin.
+  const done = new Map<CoinId, readonly GameAction[]>();
   me.hand.forEach((coin, coinIndex) => {
-    out.push(...coinActions(state, seat, coinIndex, coin));
+    const already = done.get(coin);
+    if (already) {
+      for (const action of already) out.push({ ...action, coin: coinIndex } as GameAction);
+      return;
+    }
+    const fresh = coinActions(state, seat, coinIndex, coin);
+    done.set(coin, fresh);
+    out.push(...fresh);
   });
   return out;
 }
@@ -703,11 +744,16 @@ function coinActions(
 
   if (!me.units.includes(coin)) return out; // shouldn't happen, but stay safe
 
+  // Where this unit already stands, worked out once. It was asked for four
+  // times over — twice here, once below and once inside `tacticActions` — and
+  // each answer is a walk over every stack on the board.
+  const mine = deployedUnits(state, seat, coin);
+
   // Placement actions.
   for (const to of deployTargets(state, seat, coin)) {
     out.push({ type: 'deploy', coin: coinIndex, to });
   }
-  for (const at of deployedUnits(state, seat, coin)) {
+  for (const at of mine) {
     if (isPoisoned(state, at)) continue;
     out.push({ type: 'bolster', coin: coinIndex, at });
   }
@@ -715,11 +761,11 @@ function coinActions(
   // Poison stops a unit being driven by its own coins — but not by a Marshall,
   // an Ensign or a decree. Spending a matching coin lifts every counter off
   // your units of that type, and that is not a maneuver.
-  const poisonedOwn = deployedUnits(state, seat, coin).filter((hex) => isPoisoned(state, hex));
+  const poisonedOwn = mine.filter((hex) => isPoisoned(state, hex));
   if (poisonedOwn.length > 0) out.push({ type: 'unpoison', coin: coinIndex });
 
   // Maneuvers.
-  for (const from of deployedUnits(state, seat, coin)) {
+  for (const from of mine) {
     if (isPoisoned(state, from)) continue;
     for (const to of emptyNeighbors(state, from)) {
       out.push({ type: 'move', coin: coinIndex, from, to });
@@ -731,7 +777,7 @@ function coinActions(
     }
     if (canControlHere(state, from)) out.push({ type: 'control', coin: coinIndex, at: from });
   }
-  out.push(...tacticActions(state, seat, coinIndex, coin));
+  out.push(...tacticActions(state, seat, coinIndex, coin, mine));
 
   return out;
 }

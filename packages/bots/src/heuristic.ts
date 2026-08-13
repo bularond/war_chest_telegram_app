@@ -36,10 +36,12 @@ import {
 import {
   byPriority,
   largest,
+  occupiedIn,
   senseFor,
   smallest,
   stepsFromAny,
   type BoardSense,
+  type Occupied,
   type Steps,
 } from './board-sense.js';
 import { pickLegal, type Bot, type BotContext } from './types.js';
@@ -139,10 +141,16 @@ interface Sight {
   readonly weights: HeuristicWeights;
   /** Distance fields by name — one sweep out from a set of hexes, reused. */
   readonly fields: Map<string, Steps>;
+  /**
+   * Who is standing where, built once and shared by every sweep of this
+   * decision. A decision asks for five to ten of them, and each used to walk the
+   * board and hash every stack for itself.
+   */
+  occupied: Occupied | null;
 }
 
 function sightFor(view: GameView, weights: HeuristicWeights): Sight {
-  return { view, sense: senseFor(view), weights, fields: new Map() };
+  return { view, sense: senseFor(view), weights, fields: new Map(), occupied: null };
 }
 
 /**
@@ -152,7 +160,8 @@ function sightFor(view: GameView, weights: HeuristicWeights): Sight {
 function field(sight: Sight, name: string, sources: () => Iterable<HexId>): Steps {
   let cached = sight.fields.get(name);
   if (!cached) {
-    cached = stepsFromAny(sight.view, sources());
+    sight.occupied ??= occupiedIn(sight.view);
+    cached = stepsFromAny(sight.view, sources(), sight.occupied);
     sight.fields.set(name, cached);
   }
   return cached;

@@ -12,7 +12,7 @@
  * and are the starting locations; the other eight start neutral.
  */
 
-import { fromId, toId, type Hex, type HexId, hexId, toAxial } from './hex.js';
+import { fromId, neighbors, toId, type Hex, type HexId, hexId, toAxial } from './hex.js';
 
 export type BoardSize = 2 | 4;
 
@@ -122,6 +122,45 @@ export interface BoardDefinition {
   readonly startingLocations: readonly (readonly HexId[])[];
   /** Control markers a side must place to win. */
   readonly controlMarkers: number;
+  /**
+   * The same two lists as sets, because «is this hex on the board» was asked by
+   * scanning the list.
+   *
+   * `isOnBoard` ran `hexes.includes(hex)` — a walk down 37 strings with a string
+   * comparison at each — and it was asked six times inside every `adjacent` and
+   * six more inside every `emptyNeighbors`. It is one of the most frequently
+   * evaluated questions in the whole program.
+   */
+  readonly hexSet: ReadonlySet<HexId>;
+  readonly locationSet: ReadonlySet<HexId>;
+  /**
+   * Every hex's neighbours, already cut to the board.
+   *
+   * The old `adjacent` built this answer out of strings on every call: parse the
+   * id, allocate six coordinate objects, concatenate six new ids, then scan the
+   * board list six times to drop the ones that fell off the edge. Measured at
+   * 116 ns against 7 ns for a lookup — and the board does not change during a
+   * game, so all of it was the same answer computed again.
+   */
+  readonly neighbors: ReadonlyMap<HexId, readonly HexId[]>;
+}
+
+/** The three lookups every board needs, built once from its hex list. */
+function tabulate(
+  hexes: readonly HexId[],
+  locations: readonly HexId[],
+): Pick<BoardDefinition, 'hexSet' | 'locationSet' | 'neighbors'> {
+  const hexSet = new Set(hexes);
+  const table = new Map<HexId, readonly HexId[]>();
+  for (const id of hexes) {
+    table.set(
+      id,
+      neighbors(fromId(id))
+        .map(toId)
+        .filter((h) => hexSet.has(h)),
+    );
+  }
+  return { hexSet, locationSet: new Set(locations), neighbors: table };
 }
 
 export const DUEL_BOARD: BoardDefinition = {
@@ -129,6 +168,7 @@ export const DUEL_BOARD: BoardDefinition = {
   locations: DUEL_LOCATIONS,
   startingLocations: [STARTING_LOCATIONS.a, STARTING_LOCATIONS.b],
   controlMarkers: 6,
+  ...tabulate(DUEL_BOARD_HEXES, DUEL_LOCATIONS),
 };
 
 export const TEAM_BOARD: BoardDefinition = {
@@ -139,6 +179,7 @@ export const TEAM_BOARD: BoardDefinition = {
     [...STARTING_LOCATIONS.b, TEAM_OUTER_STARTING_LOCATION.b],
   ],
   controlMarkers: 8,
+  ...tabulate(FULL_BOARD_HEXES, FULL_BOARD_LOCATIONS),
 };
 
 /** The half-turn that maps one side of the board onto the other. */

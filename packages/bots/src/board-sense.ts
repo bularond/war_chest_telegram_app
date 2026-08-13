@@ -94,17 +94,16 @@ function geometryFor(size: BoardSize): Geometry {
  * it is at least as long as the route to the source it passed through, which is
  * already in the minimum.
  */
-export function stepsFromAny(view: Occupancy, sources: Iterable<HexId>): Steps {
+export function stepsFromAny(view: Occupancy, sources: Iterable<HexId>, board?: Occupied): Steps {
   const geo = geometryFor(view.size);
   const dist = new Int16Array(geo.ids.length).fill(-1);
 
-  // Who stands where, once: the loop below would otherwise ask the position
-  // about every hex it touches.
-  const occupied = new Uint8Array(geo.ids.length);
-  for (const hex of Object.keys(view.units)) {
-    const i = geo.index.get(hex as HexId);
-    if (i !== undefined) occupied[i] = 1;
-  }
+  // Who stands where. The sweep marks its own sources as passable, so it needs
+  // a copy it may write to — but building the map costs a walk over the board
+  // and a hash lookup per stack, and one decision asks for five to ten sweeps
+  // of the same position. Copying 37 bytes is the cheaper half of that by far,
+  // so a caller that is about to sweep repeatedly builds it once.
+  const occupied = board ? board.slice() : occupiedIn(view).slice();
 
   let frontier: number[] = [];
   for (const source of sources) {
@@ -154,6 +153,24 @@ export function stepsFromAny(view: Occupancy, sources: Iterable<HexId>): Steps {
 export interface Occupancy {
   readonly size: BoardSize;
   readonly units: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * Who is standing on each hex, by index. Shared between the sweeps of one
+ * decision; `stepsFromAny` copies it before writing.
+ */
+export type Occupied = Uint8Array;
+
+export function occupiedIn(view: Occupancy): Occupied {
+  const geo = geometryFor(view.size);
+  const occupied = new Uint8Array(geo.ids.length);
+  // `for…in` rather than `Object.keys`: the keys are wanted one at a time and
+  // the array they would arrive in is thrown away.
+  for (const hex in view.units) {
+    const i = geo.index.get(hex as HexId);
+    if (i !== undefined) occupied[i] = 1;
+  }
+  return occupied;
 }
 
 /** Steps from one hex — the walker's own — around whatever is in the way. */
@@ -207,8 +224,9 @@ export function senseFor(view: GameView): BoardSense {
 
   const enemyUnits: HexId[] = [];
   const myUnits: HexId[] = [];
-  for (const [hex, stack] of Object.entries(view.units)) {
-    (stack.team === me ? myUnits : enemyUnits).push(hex);
+  for (const hex in view.units) {
+    const stack = view.units[hex as HexId];
+    if (stack) (stack.team === me ? myUnits : enemyUnits).push(hex as HexId);
   }
 
   return {
