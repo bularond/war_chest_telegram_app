@@ -125,7 +125,12 @@ export function createGame(opts: CreateGameOptions): GameState {
     state.decrees = shuffle(rng, [...DECREE_IDS])
       .slice(0, DECREES_IN_PLAY)
       .map((id) => ({ id, seals: [] }));
-    for (const p of players) p.seals = SEALS_PER_SIDE;
+    // Three per *side*, and a four-player team shares them. The pool is stored
+    // across the seats that make up the side, so the whole three go to the
+    // first of them and `sealsLeft` reads the sum.
+    for (const p of players) {
+      p.seals = players.find((q) => q.team === p.team) === p ? SEALS_PER_SIDE : 0;
+    }
   }
 
   // Siege picks one Fortification Map Card at random: four Fortifications go

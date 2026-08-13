@@ -22,6 +22,7 @@
 
 import {
   distance,
+  distinctMoves,
   fromId,
   nextInt,
   UNITS,
@@ -70,11 +71,22 @@ export interface HeuristicWeights {
    */
   readonly draftBy: 'coins' | 'scarcity' | 'random' | 'measured' | 'measured-all' | 'measured-all-660';
   /**
-   * Rank a tactic that chooses its target on a follow-up step by what it will
-   * do, rather than letting it fall to `cleanup` for want of a `target` or a
-   * `to` field. Off is the old behaviour, kept so the change can be measured.
+   * Rank a tactic by what it will do, rather than by the fields the action
+   * happens to carry. Off is the old behaviour, kept so the change can be
+   * measured.
    */
   readonly rankTactics: boolean;
+  /**
+   * Draw at random over the *moves* rather than over the legal list.
+   *
+   * The list has one entry per hand slot, so a move payable with either of two
+   * identical coins appears in it twice — 16.3% of the drawers this bot keeps
+   * hold at least one such pair, and inside those the doubled move is drawn
+   * twice as often as its neighbours. The priority lists cannot see it either:
+   * they filter and compare, and two entries that agree on every field they read
+   * both survive to the end.
+   */
+  readonly uniformMoves: boolean;
 }
 
 export const DEFAULT_WEIGHTS: HeuristicWeights = {
@@ -91,6 +103,7 @@ export const DEFAULT_WEIGHTS: HeuristicWeights = {
   // extra steps.
   draftBy: 'measured-all',
   rankTactics: true,
+  uniformMoves: true,
 };
 
 /**
@@ -169,13 +182,30 @@ export function createHeuristicBot(
       });
       const pool = legal.filter((_, i) => ranks[i] === best);
 
-      const refined = refine(sight, best, pool);
+      const refined = distinct(view, weights, refine(sight, best, pool));
       return refined[nextInt(ctx.rng, refined.length)] as GameAction;
     },
   };
 }
 
 export const HeuristicBot: Bot = createHeuristicBot();
+
+/**
+ * The pool with duplicate moves taken out, so the draw that follows is uniform
+ * over what the player can do rather than over what the engine listed.
+ *
+ * Only the acting player's own hand can name a coin, and in a view built for
+ * anybody else it is not there — `moveKey` then falls back to the slot, which is
+ * exactly what this did before.
+ */
+function distinct(
+  view: GameView,
+  weights: HeuristicWeights,
+  pool: readonly GameAction[],
+): readonly GameAction[] {
+  if (!weights.uniformMoves || pool.length <= 1) return pool;
+  return distinctMoves(pool, view.players[view.acting]?.hand, view.pending);
+}
 
 /**
  * Which drawer the heuristic would put each action in, lowest first.
@@ -247,14 +277,23 @@ function bolsterOpensAKnight(sight: Sight, hex: HexId): boolean {
 }
 
 /**
- * A tactic that chooses its target on the *next* step, ranked by what it will do
- * rather than by the fields it happens to carry.
+ * A tactic ranked by what it will do, rather than by the fields it happens to
+ * carry.
  *
  * `rankOf` reads an action's shape: a `target` makes it an attack, a `to` makes
  * it a maneuver, and anything else drops to `cleanup` — two drawers below a
  * plain move, which the chart reaches only when nothing else exists. Six cards
  * pick their target on a follow-up step and so carry neither field: the Marshal,
  * the Ensign, the Earl, the Bishop, the Herald and the Footman.
+ *
+ * The Infiltrator is the seventh, and it was missed by the first pass because it
+ * fails the other way: its action carries a `to`, so `destinationOf` claimed it
+ * and it read as a plain move. What it does is walk onto a location the other
+ * side holds **and take it** — up to and including the last marker of the game.
+ * That is the lesson of the whole family in one card: a filter written as "the
+ * actions that carry neither field" is a filter over shapes, and the question
+ * was always about meaning. So this is now asked of every tactic first, and the
+ * shape is only consulted when the card has no answer.
  *
  * Measured before the fix: over 120 games with every box on the table those six
  * were offered 1401 times and played **none** of them. Not seldom — never. The
@@ -267,13 +306,17 @@ function bolsterOpensAKnight(sight: Sight, hex: HexId): boolean {
  * falls through to the pool untouched: its priority lists read `attackTargetOf`
  * and `destinationOf`, and those are exactly the fields these actions lack.
  */
-function bareTacticRank(sight: Sight, action: GameAction): number | undefined {
+function tacticRank(sight: Sight, action: GameAction): number | undefined {
   if (!sight.weights.rankTactics) return undefined;
   if (action.type !== 'tactic') return undefined;
-  if (attackTargetOf(action) !== undefined || destinationOf(action) !== undefined) return undefined;
   const stack = sight.view.units[action.from];
   const spec = stack ? UNITS[stack.unit].tactic : undefined;
   switch (spec?.kind) {
+    // Move onto a location the other side holds and place a marker on it. The
+    // marker is the win condition, so this belongs beside a plain control and
+    // above it when it is the last one.
+    case 'infiltrate':
+      return controlWins(sight.view) ? RANK.winningControl : RANK.control - 0.25;
     // Granting an attack sits just *below* swinging directly: it costs the
     // Marshal's coin to make somebody else swing, and if a plain attack is on
     // offer the chart should take it. Measured at 38.7% of the chances it gets.
@@ -346,12 +389,14 @@ function rankOf(sight: Sight, action: GameAction): number {
       break;
   }
 
+  // What the card does comes first; its shape is the fallback, not the rule.
+  const named = tacticRank(sight, action);
+  if (named !== undefined) return named;
+
   if (attackTargetOf(action) !== undefined) {
     return weights.attackBeforeControl ? RANK.attack : RANK.control + 0.5;
   }
   if (destinationOf(action) !== undefined) return RANK.move;
-  const bare = bareTacticRank(sight, action);
-  if (bare !== undefined) return bare;
   return RANK.cleanup;
 }
 
@@ -498,11 +543,26 @@ function chooseRecruit(sight: Sight, pool: readonly GameAction[]): readonly Game
   ]);
 }
 
-/** How recently each of my unit types acted, read off the shared log. */
+/**
+ * How recently each of my unit types was maneuvered, read off the shared log.
+ *
+ * The chart's third recruitment tiebreak is "the unit that was most recently
+ * maneuvered", and a maneuver is one of three things: move, control, attack.
+ * This used to accept any entry carrying a `unit`, which is a different rule
+ * with a different answer in 21% of the decisions it settled — a deploy, a
+ * bolster or a recruit is not a maneuver, and `poison` logs the name of the
+ * *victim* under the poisoner's seat, so an enemy unit could be read back as
+ * one of ours. And the two entries this actually wanted carried no unit at all
+ * until `engine.ts` started writing one: a move was logged as `{from,to}` and a
+ * control as `{hex}`.
+ */
+const MANEUVERS = new Set(['move', 'control', 'attack']);
+
 function maneuverRecency(view: GameView): Map<UnitId, number> {
   const out = new Map<UnitId, number>();
   view.log.forEach((entry, i) => {
     if (entry.seat !== view.you) return;
+    if (!MANEUVERS.has(entry.kind)) return;
     const unit = entry.params.unit;
     if (typeof unit === 'string' && unit in UNITS) out.set(unit as UnitId, i);
   });

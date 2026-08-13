@@ -117,6 +117,15 @@ export type PendingStep =
   | { readonly kind: 'shoveEnemy'; readonly origin: HexId }
   /** Bishop: after recruiting, move or attack. */
   | { readonly kind: 'maneuverUnitLimited'; readonly hex: HexId; readonly allow: readonly ('move' | 'attack')[] }
+  /**
+   * Saboteur: having recruited one, use that unit's tactic for free.
+   *
+   * The tactic belongs to a coin already on the board, not to the coin just
+   * recruited — recruiting puts a coin in the discard pile, and no tactic is
+   * played from there. So the step names the *unit*, and the follow-up picks
+   * among whichever of that unit's stacks could play it.
+   */
+  | { readonly kind: 'freeTactic'; readonly unit: UnitId; readonly source: 'saboteur' }
   /** Earl / Herald: proclaim a Decree, optionally without spending a Seal. */
   | { readonly kind: 'proclaim'; readonly free: boolean }
   /** Assassin: burn a coin of the unit it just finished off. */
@@ -246,6 +255,17 @@ export type FollowUpAction =
   | { readonly type: 'followAbsorb'; readonly source: 'supply' | 'wagon' | 'decoy'; readonly hex?: HexId }
   | { readonly type: 'followBurn'; readonly unit: UnitId }
   | { readonly type: 'followDeceive'; readonly seat: Seat }
+  /**
+   * A tactic played without paying for it. Same four hexes a `tactic` action
+   * carries, minus the coin — see the `freeTactic` step.
+   */
+  | {
+      readonly type: 'followTactic';
+      readonly from: HexId;
+      readonly to?: HexId;
+      readonly target?: HexId;
+      readonly subject?: HexId;
+    }
   | { readonly type: 'skip' };
 
 export type DraftAction =

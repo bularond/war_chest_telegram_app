@@ -387,6 +387,67 @@ describe('what has been traded away', () => {
     state.players[1]!.removed = { footman: 2 };
     expect(evaluate(state, 0, only({ traded: 1, material: 0 }))).toBe(0);
   });
+
+  it('keeps counting after the first coin, which a mean did not', () => {
+    // It divided by the number of coins destroyed, so it was an average and not
+    // a balance: one Footman lost against their one Light Cavalry read exactly
+    // the same as two against two, and a lopsided exchange could not deepen.
+    const one = duel('knight', 'knight');
+    one.players[0]!.removed = { footman: 1 };
+    one.players[1]!.removed = { lightCavalry: 1 };
+    const two = duel('knight', 'knight');
+    two.players[0]!.removed = { footman: 2 };
+    two.players[1]!.removed = { lightCavalry: 2 };
+    const w = only({ traded: 1, material: 0 });
+    expect(evaluate(two, 0, w)).toBeGreaterThan(evaluate(one, 0, w));
+  });
+});
+
+describe('coins that are never coming back', () => {
+  it('says nothing before anything has died', () => {
+    const state = duel('knight', 'knight');
+    expect(evaluate(state, 0, only({ attrition: 1, material: 0 }))).toBe(0);
+  });
+
+  it('counts a loss as a loss, whatever was lost', () => {
+    // The point of having it beside `traded`: `unitWorth` is centred, so on its
+    // own `traded` calls the loss of a below-average unit a gain. Nothing else
+    // in the evaluation notices a destroyed coin at all — `material` sees the
+    // board shrink but not that the shrinking is permanent, and `reserve` counts
+    // bag, hand, discard and supply, none of which the coin passed through.
+    const cheap = duel('knight', 'knight');
+    cheap.players[0]!.removed = { footman: 1 };
+    const dear = duel('knight', 'knight');
+    dear.players[0]!.removed = { lightCavalry: 1 };
+    const w = only({ attrition: 1, material: 0 });
+    expect(evaluate(cheap, 0, w)).toBeLessThan(0);
+    expect(evaluate(dear, 0, w)).toBeLessThan(0);
+    expect(evaluate(cheap, 0, w)).toBeCloseTo(evaluate(dear, 0, w), 10);
+  });
+
+  it('is a mirror', () => {
+    const state = duel('knight', 'knight');
+    state.players[0]!.removed = { footman: 3 };
+    state.players[1]!.removed = { knight: 1 };
+    const w = only({ attrition: 1, material: 0 });
+    expect(evaluate(state, 0, w)).toBeCloseTo(-evaluate(state, 1, w), 10);
+  });
+});
+
+describe('a weights file that predates a feature', () => {
+  it('is a set of zeroes, not a NaN', () => {
+    // The natural minimal file: the keys that existed when it was written and
+    // nothing else. Two features tested `weights.x !== 0` rather than
+    // `(weights.x ?? 0) !== 0`, and `undefined !== 0` is true — so `undefined`
+    // went into the arithmetic and the whole evaluation came back NaN. It
+    // surfaced twenty iterations later, in the search, as «no move could be
+    // chosen»: ninety lines and one package away from the cause.
+    const state = contact('knight', 'footman');
+    const minimal = { version: 'old', markers: 1, material: 0.7 } as unknown as EvalWeights;
+    const score = evaluate(state, 0, minimal);
+    expect(Number.isNaN(score)).toBe(false);
+    expect(featureVector(state, 0).every((x) => Number.isFinite(x))).toBe(true);
+  });
 });
 
 describe('each side measured against what it needs', () => {
@@ -494,7 +555,11 @@ describe('the feature vector', () => {
             key === 'scarcity' || key === 'reach' ? rand() * 0.8 - 0.4 : rand() * 2 - 1,
           ]),
         ),
-        proximityWalk: 0,
+        // `proximityWalk` used to be pinned to zero here, and that is the only
+        // reason the identity held: it had no coordinate in `FEATURES` at all,
+        // so a non-zero weight put a term in `evaluate` that the dot product
+        // could not see. A test that switches a feature off before checking it
+        // is a test that cannot fail on it.
       } as unknown as EvalWeights;
 
       for (const seat of [0, 1] as const) {

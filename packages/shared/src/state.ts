@@ -11,7 +11,8 @@
 import { actingSeat, applyAction, legalActions } from './engine.js';
 import type { DecreeInPlay } from './decrees.js';
 import type { HexId } from './hex.js';
-import type { GameAction, GameState, PlayerState, Seat, UnitStack } from './types.js';
+import { isCoinAction, type GameAction, type GameState, type PendingStep, type PlayerState, type Seat, type UnitStack } from './types.js';
+import type { CoinId } from './units.js';
 
 // ---------------------------------------------------------------------------
 // Copying
@@ -185,6 +186,73 @@ const PLAIN = /^[ -!#-[\]-~]*$/;
  */
 export function actionKey(action: GameAction): string {
   return canonical(action);
+}
+
+/**
+ * A name for the *move*, where `actionKey` names the action.
+ *
+ * The two differ in exactly two places, and both cost the search real work.
+ *
+ * **The coin is a hand slot.** A player holding two Knight coins can pay for one
+ * move with either, so the engine offers it twice and `actionKey` gives the two
+ * copies different names. In the tree that splits one move's statistics across
+ * two edges — worse in the opponent's part of it, where the hand is re-dealt
+ * every iteration and the slot a Knight lands in is random, so the same reply
+ * gets a fresh name each time. Measured: 2,1 duplicate edges per distinct move,
+ * and merging them changes the move chosen in 41% of the root positions where
+ * duplicates appear. In a uniform draw it is worse than fragmentation, it is
+ * bias: the move payable two ways is drawn twice as often as the one payable
+ * one way.
+ *
+ * **`skip` means two different things.** It is "let the blow land on me" as the
+ * defender and "stay where I am" as the attacker, and one name gave them one
+ * edge and one pool of statistics. The step being answered tells them apart.
+ *
+ * `hand` is the acting player's, and it is optional because a redacted view may
+ * not carry it: without it the slot is the best name available, which is what
+ * this was before.
+ */
+export function moveKey(
+  action: GameAction,
+  hand?: readonly CoinId[],
+  pending?: readonly PendingStep[],
+): string {
+  if (action.type === 'skip') {
+    const step = pending?.[pending.length - 1];
+    return step ? `{"type":"skip","step":"${step.kind}"}` : '{"type":"skip"}';
+  }
+  if (!isCoinAction(action) || !hand) return canonical(action);
+  const coin = hand[action.coin];
+  if (coin === undefined) return canonical(action);
+  // `coin` goes from a slot number to the name of what is in it. Everything
+  // else about the action is untouched, so two moves differing anywhere else
+  // still get two names.
+  return canonical({ ...action, coin } as unknown as GameAction);
+}
+
+/**
+ * The same list with each move named once, keeping the first entry offering it.
+ *
+ * Whoever draws at random from a legal list wants this and not the list: the
+ * list has one entry per hand slot, so a move a player can pay for two ways is
+ * in it twice and comes up twice as often. 16.3% of the drawers the heuristic
+ * keeps hold at least one such pair, and the legal lists a rollout draws from
+ * carry 11% more entries than there are moves.
+ */
+export function distinctMoves(
+  actions: readonly GameAction[],
+  hand?: readonly CoinId[],
+  pending?: readonly PendingStep[],
+): GameAction[] {
+  const seen = new Set<string>();
+  const out: GameAction[] = [];
+  for (const action of actions) {
+    const key = moveKey(action, hand, pending);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(action);
+  }
+  return out;
 }
 
 export function serializeState(state: GameState): string {

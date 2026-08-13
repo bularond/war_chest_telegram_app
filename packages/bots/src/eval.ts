@@ -52,8 +52,22 @@ export interface EvalWeights {
   readonly scarcity: number;
   readonly reach: number;
   /**
-   * Material again, but each coin counted at what its unit is measured to be
-   * worth rather than at one.
+   * The part of a coin's value that depends on which unit it is.
+   *
+   * Not "material again with better numbers", which is what this comment used to
+   * promise and what the verdict of 13 August therefore measured under the wrong
+   * name. `unitWorth` is centred: zero for an average unit, about ±1 at the ends
+   * of the table. So this coordinate carries only the *deviation*, and the value
+   * of a coin on the board is the pair `material · 1 + worth · unitWorth(unit)`.
+   * The two are meant to be read together and a fit will always return both.
+   *
+   * That has one consequence worth stating, because it looks like a bug when it
+   * is met in the wild. Past `material / max|unitWorth|` — about 0.84 at
+   * `material = 0.7` — the pair goes negative for the weakest unit in the box,
+   * and the evaluation would rather keep its own Footmen off the board than on
+   * it. A weight that large is not a strong opinion about unit quality; it is an
+   * opinion that some coins are worth less than no coin, which the game does not
+   * contain.
    *
    * `scarcity` was the first attempt at this and it was null by construction:
    * it reads `5 − coins in the box`, and the box count is *known* to carry no
@@ -103,11 +117,29 @@ export interface EvalWeights {
    */
   readonly circulation: number;
   /**
-   * Who lost the better coins, over the whole game so far.
+   * How many coins each side has lost for good.
    *
-   * `reserve` counts what is left to come and so already knows *how many* coins
-   * each side has lost. It has no opinion on which ones. A destroyed coin never
-   * returns, so this is the one balance in the game that only ever grows.
+   * Nothing else in the evaluation counts this. `reserve` was supposed to —
+   * that was the stated reason this feature had no count in it — but `reserve`
+   * adds up the bag, the hand, the discard and the supply, and a coin destroyed
+   * on the board passed through none of them on its way out. It was on the board,
+   * where `material` counted it, and now it is in the box. `material` drops by
+   * one and nothing anywhere records that the drop is permanent.
+   */
+  readonly attrition: number;
+  /**
+   * Which of those coins were the better ones, on top of how many there were.
+   *
+   * The same split as `material` and `worth`, for the same reason: `unitWorth`
+   * is centred, so this carries the deviation and `attrition` carries the count.
+   * Alone it said that losing a below-average unit was *good* — an artefact of
+   * asking a centred number to answer an uncentred question.
+   *
+   * Both are divided by every coin in the game rather than by the number lost so
+   * far. Dividing by the number lost made it a mean, and a mean is the one shape
+   * this must not have: a destroyed coin never comes back, so the balance can
+   * only grow, and yet a symmetric trade returned exactly zero and a second kill
+   * of the same unit changed nothing at all.
    */
   readonly traded: number;
   /** Coins still to come: bag, hand, discard and supply. */
@@ -214,6 +246,10 @@ export const BASE_WEIGHTS: EvalWeights = {
   // Untried as of eval@5.
   worth: 0,
   circulation: 0,
+  // Reworked after the 13 August verdict: it was a mean over destroyed coins,
+  // so the thing it was named for — a balance that only grows — was not what
+  // played the match. The count half of it did not exist at all.
+  attrition: 0,
   traded: 0,
   // Zero is not a placeholder, it is a verdict. `bolster` was tried and did not
   // pay for itself; `initiative` has not yet been shown to. A feature that has
@@ -258,7 +294,12 @@ export function evaluate(state: GameState, seat: Seat, weights: EvalWeights = BA
   const markers = (placed(me.team) - placed(foeTeam)) / board.controlMarkers;
 
   // Weights arrive from JSON files written by earlier versions, which have no
-  // key for a feature that did not exist yet. A missing weight is a zero.
+  // key for a feature that did not exist yet. A missing weight is a zero, and
+  // every test below has to say so: two of them read `weights.x !== 0` instead,
+  // and `undefined !== 0` is true, so a file that simply predated the feature
+  // put `undefined` into the arithmetic and the whole evaluation came back
+  // `NaN`. It surfaced twenty iterations later as "no move could be chosen",
+  // ninety lines away from the cause.
   const byType = (weights.scarcity ?? 0) !== 0 || (weights.reach ?? 0) !== 0;
   let mine = 0;
   let theirs = 0;
@@ -287,10 +328,14 @@ export function evaluate(state: GameState, seat: Seat, weights: EvalWeights = BA
   const pool = myReserve + theirReserve;
   const reserve = pool === 0 ? 0 : (myReserve - theirReserve) / pool;
 
+  // The three that are always summed rather than tested, and so had no `?? 0`
+  // to forget: a file missing any of them poisoned the sum just as surely.
   let score =
-    weights.markers * markers + weights.material * material + weights.reserve * reserve;
+    (weights.markers ?? 0) * markers +
+    (weights.material ?? 0) * material +
+    (weights.reserve ?? 0) * reserve;
 
-  if (weights.bolster !== 0) {
+  if ((weights.bolster ?? 0) !== 0) {
     // Coins above the first on each stack. Bolstering trades width for depth:
     // fewer places at once, but harder to remove from any of them.
     let deep = 0;
@@ -304,7 +349,7 @@ export function evaluate(state: GameState, seat: Seat, weights: EvalWeights = BA
     score += weights.bolster * (stacked === 0 ? 0 : (deep - theirDeep) / stacked);
   }
 
-  if (weights.proximity !== 0) {
+  if ((weights.proximity ?? 0) !== 0) {
     // Closeness to the locations we do not hold: a unit two hexes from a free
     // location is worth more than the same unit idling behind the line.
     const open = board.locations.filter((loc) => state.control[loc] !== me.team);
@@ -381,6 +426,10 @@ export function evaluate(state: GameState, seat: Seat, weights: EvalWeights = BA
     // Negative, like every other liability here: a positive weight should mean
     // "a board I cannot drive is bad".
     score -= weights.circulation * (frozenFraction(state, me.team) - frozenFraction(state, foeTeam));
+  }
+
+  if ((weights.attrition ?? 0) !== 0) {
+    score += weights.attrition * attritionBalance(state, me.team);
   }
 
   if ((weights.traded ?? 0) !== 0) {
@@ -478,7 +527,6 @@ function deadFraction(state: GameState, team: Team): number {
   return held === 0 ? 0 : dead / held;
 }
 
-/** The share of a hand whose units are not on the board. */
 /**
  * Coins of each unit this player can still draw: bag, hand, discard, supply.
  *
@@ -544,26 +592,58 @@ function frozenFraction(state: GameState, team: Team): number {
 }
 
 /**
- * The balance of what has been destroyed, by what it was worth.
+ * Every coin the game contains, wherever it happens to be.
  *
- * Positive is good for `team`: it has lost the cheaper coins. Zero before
- * anything has died, and it never goes back to zero afterwards — coins removed
- * from the board leave the game.
+ * Conserved, which is the whole reason it is the denominator for the two
+ * attrition terms: a balance that only grows needs a scale that does not move
+ * under it. The number lost so far is not one — dividing by it turns a running
+ * total into an average, which is exactly the shape a permanent loss must not
+ * have.
+ */
+function coinsInGame(state: GameState): number {
+  let n = coinsOnBoard(state);
+  for (const p of state.players) {
+    n += p.bag.length + p.hand.length + p.discard.length + total(p.supply) + total(p.removed);
+  }
+  return n;
+}
+
+/** How many coins each side has lost, against half the coins in the game. */
+function attritionBalance(state: GameState, team: Team): number {
+  let balance = 0;
+  for (const p of state.players) {
+    const sign = p.team === team ? -1 : 1;
+    for (const n of Object.values(p.removed)) balance += sign * (n ?? 0);
+  }
+  const pool = coinsInGame(state);
+  // Half the pool, so a side that had lost everything would read −1: each side
+  // owns about half the coins, and the balance is one side against the other.
+  return pool === 0 ? 0 : (2 * balance) / pool;
+}
+
+/**
+ * The same balance, weighed by what each destroyed coin was worth.
+ *
+ * Positive is good for `team`: it has lost the cheaper coins. Read on its own
+ * this says losing a Footman is *good*, because `unitWorth` is centred and a
+ * Footman's is negative — which is why it belongs beside `attrition` and not
+ * instead of it. Together they say: a coin gone is a coin gone, and a good coin
+ * gone is worse.
  */
 function tradeBalance(state: GameState, team: Team): number {
   let balance = 0;
-  let count = 0;
   for (const p of state.players) {
     const sign = p.team === team ? -1 : 1;
     for (const [unit, n] of Object.entries(p.removed)) {
       if (!n) continue;
-      count += n;
       balance += sign * n * unitWorth(unit as UnitId);
     }
   }
-  return count === 0 ? 0 : balance / count;
+  const pool = coinsInGame(state);
+  return pool === 0 ? 0 : (2 * balance) / pool;
 }
 
+/** The share of a hand whose units are not on the board. */
 function idleFraction(state: GameState, team: Team): number {
   const present = new Set<UnitId>();
   for (const stack of Object.values(state.units)) {
@@ -643,6 +723,9 @@ export function featureVector(state: GameState, seat: Seat): number[] {
   const proximity = closeness(state, me.team, open) - closeness(state, foeTeam, open);
   const theirsOpen = board.locations.filter((loc) => state.control[loc] !== foeTeam);
   const approach = closeness(state, me.team, open) - closeness(state, foeTeam, theirsOpen);
+  const walk = stepsFromAny(state, open);
+  const proximityWalk =
+    walkCloseness(state, me.team, walk, open.length) - walkCloseness(state, foeTeam, walk, open.length);
   const holder = state.players.find((p) => p.hasInitiative);
   const acting = state.players[actingSeat(state)];
 
@@ -664,6 +747,8 @@ export function featureVector(state: GameState, seat: Seat): number[] {
     -(frozenFraction(state, me.team) - frozenFraction(state, foeTeam)),
     tradeBalance(state, me.team),
     approach,
+    proximityWalk,
+    attritionBalance(state, me.team),
   ];
 }
 
@@ -689,6 +774,12 @@ export const FEATURES: readonly (keyof EvalWeights)[] = [
   'circulation',
   'traded',
   'approach',
+  // `proximityWalk` had no coordinate at all, which made the identity this file
+  // rests on — `evaluate` equals `tanh(w · featureVector)` — false at any
+  // non-zero weight. The test did not see it because it zeroed the weight
+  // before comparing.
+  'proximityWalk',
+  'attrition',
 ];
 
 /**
@@ -713,8 +804,11 @@ export function weightsFromFit(fit: readonly number[], version: string): EvalWei
     reserve: at('reserve'),
     bolster: at('bolster'),
     proximity: at('proximity'),
-    // Not fitted: it measures the same thing as `proximity` and would only
-    // split that feature's weight in half between two coordinates.
+    // Zeroed rather than read back, though the coordinate now exists: this and
+    // `proximity` and `approach` are three readings of one question, and a fit
+    // handed all three splits the weight between them and reports each as
+    // smaller than the idea is. The coordinate is there so the identity holds;
+    // which of the three to believe is a match's decision, not a fit's.
     proximityWalk: 0,
     initiative: at('initiative'),
     tempo: at('tempo'),
@@ -724,9 +818,17 @@ export function weightsFromFit(fit: readonly number[], version: string): EvalWei
     idleHand: at('idleHand'),
     worth: at('worth'),
     circulation: at('circulation'),
+    attrition: at('attrition'),
     traded: at('traded'),
     approach: at('approach'),
   };
+}
+
+/** Every coin standing on the board, both sides. The scale `material` divides by. */
+function coinsOnBoard(state: GameState): number {
+  let n = 0;
+  for (const stack of Object.values(state.units)) n += stack.coins;
+  return n;
 }
 
 /**
@@ -748,12 +850,6 @@ export function weightsFromFit(fit: readonly number[], version: string): EvalWei
  * Whether either is worth anything is a question for the arena. Both weigh zero
  * until an experiment moves them.
  */
-function coinsOnBoard(state: GameState): number {
-  let n = 0;
-  for (const stack of Object.values(state.units)) n += stack.coins;
-  return n;
-}
-
 function multiplier(unit: UnitId, weights: EvalWeights): number {
   const value = typeValue(unit);
   const m = 1 + (weights.scarcity ?? 0) * value.scarcity + (weights.reach ?? 0) * value.reach;

@@ -12,6 +12,8 @@ import {
   canAttackTarget,
   createGame,
   createRng,
+  legalMoves,
+  moveKey,
   publicStateFor,
   type GameState,
   type HexId,
@@ -411,51 +413,86 @@ describe('the search, move for move', () => {
     deadWeight: 0,
   };
 
+  /**
+   * The fallback path: edges named by hand slot, as they always were.
+   *
+   * Re-recorded twice now, both times because the rollout policy changed and
+   * neither time because the descent did. First when it learned to play six
+   * cards it had never played — the Marshal, the Ensign, the Earl, the Bishop,
+   * the Herald and the Footman all pick their target on a follow-up step, so
+   * the heuristic filed them under housekeeping and took none of 1401 chances
+   * over 120 games. Now because it stopped drawing over hand slots and started
+   * drawing over moves, and because "most recently maneuvered" stopped meaning
+   * "most recently mentioned in the log". A master is a lock on the machinery,
+   * not on the policy, and the policy changed on purpose — so these numbers move
+   * with it.
+   *
+   * What guards the descent itself through a rewrite like this one is the test
+   * below: with slot keys the merge is provably a no-op, because no legal list
+   * ever holds two entries with the same `actionKey`.
+   */
   const GOLDEN: Record<string, string> = {
-    // Re-recorded when the rollout policy learned to play six cards it had never
-    // played: the Marshal, the Ensign, the Earl, the Bishop, the Herald and the
-    // Footman all pick their target on a follow-up step, so the action that
-    // starts them carries neither `target` nor `to` and the heuristic filed them
-    // under housekeeping. 1401 chances over 120 games, none taken. A master is a
-    // lock on the machinery, not on the policy, and the policy changed on
-    // purpose — so these numbers move with it.
-    '3/120': '{"coin":1,"from":"7,1","to":"8,2","type":"move"} 6 0.215898',
-    '3/400': '{"coin":2,"type":"recruit","unit":"mercenary"} 22 0.222416',
-    '7/120': '{"at":"3,3","coin":2,"type":"bolster"} 10 -0.126707',
-    '7/400': '{"at":"3,3","coin":2,"type":"bolster"} 38 -0.142453',
-    '11/120': '{"coin":2,"from":"7,0","to":"8,1","type":"move"} 6 0.120987',
-    '11/400': '{"at":"7,0","coin":2,"type":"bolster"} 22 0.137516',
+    '3/120': '{"coin":0,"to":"4,0","type":"deploy"} 5 0.218732',
+    '3/400': '{"at":"5,1","coin":2,"type":"bolster"} 17 0.204228',
+    '7/120': '{"coin":0,"from":"5,4","to":"5,5","type":"move"} 7 -0.089147',
+    '7/400': '{"coin":0,"from":"5,4","to":"6,4","type":"move"} 26 -0.044659',
+    '11/120': '{"coin":0,"to":"6,5","type":"deploy"} 11 -0.163936',
+    '11/400': '{"coin":1,"to":"3,4","type":"deploy"} 31 -0.232853',
   };
-  it('picks the same moves it picked before the copying went', () => {
-    const config = {
-      ...DEFAULT_SEARCH,
-      weights: FROZEN,
-      exploration: 0.9,
-      rolloutDepth: 12,
-      firstPlay: Infinity,
-      // Pinned like the rest: the master was recorded before the rollout took
-      // any noise, and a tuned constant must never be confused with a broken
-      // descent. The knob's own effect is checked in its own test above.
-      rolloutNoise: 0,
-    };
-    for (const seed of [3, 7, 11]) {
-      const state = game(seed);
-      // Walk in a couple of dozen plies, so the position has coins on the board
-      // and a tree worth building.
-      const walk = createRng(seed);
-      for (let i = 0; i < 24 && state.phase !== 'finished'; i++) {
-        const seat = actingSeat(state);
-        const r = runSearch(publicStateFor(state, seat), { rng: walk, budget: { iterations: 30 } }, config);
-        applyAction(state, seat, r.action);
-      }
 
-      const view = publicStateFor(state, actingSeat(state));
-      for (const iterations of [120, 400]) {
-        const r = runSearch(view, { rng: createRng(seed * 13), budget: { iterations } }, config);
-        expect(`${actionKey(r.action)} ${r.visits} ${r.value.toFixed(6)}`).toBe(GOLDEN[`${seed}/${iterations}`]);
+  /**
+   * The same walk with the tree naming its edges by unit rather than by hand
+   * slot — the path that ships, and so the one that needs a lock of its own.
+   *
+   * The visit counts are the change in one column: 34 of 120 where the slot-keyed
+   * tree gave its best move 5, and 127 of 400 against 17. Two coins of a unit
+   * used to buy the same move two names and split its statistics between them.
+   */
+  const GOLDEN_UNIT_KEYS: Record<string, string> = {
+    '3/120': '{"from":"5,-1","to":"6,0","type":"followMove"} 34 0.025931',
+    '3/400': '{"from":"5,-1","to":"6,0","type":"followMove"} 127 0.032974',
+    '7/120': '{"coin":0,"type":"recruit","unit":"berserker"} 10 -0.084290',
+    '7/400': '{"at":"4,1","coin":2,"type":"bolster"} 39 -0.098972',
+    '11/120': '{"coin":0,"type":"pass"} 23 0.145165',
+    '11/400': '{"coin":0,"to":"7,0","type":"deploy"} 80 0.121563',
+  };
+
+  for (const unitKeys of [false, true]) {
+    it(`picks the same moves it picked before the copying went${unitKeys ? ', keyed by unit' : ''}`, () => {
+      const config = {
+        ...DEFAULT_SEARCH,
+        weights: FROZEN,
+        exploration: 0.9,
+        rolloutDepth: 12,
+        firstPlay: Infinity,
+        // Pinned like the rest: the master was recorded before the rollout took
+        // any noise, and a tuned constant must never be confused with a broken
+        // descent. The knob's own effect is checked in its own test above.
+        rolloutNoise: 0,
+        unitKeys,
+      };
+      const expected = unitKeys ? GOLDEN_UNIT_KEYS : GOLDEN;
+      for (const seed of [3, 7, 11]) {
+        const state = game(seed);
+        // Walk in a couple of dozen plies, so the position has coins on the board
+        // and a tree worth building.
+        const walk = createRng(seed);
+        for (let i = 0; i < 24 && state.phase !== 'finished'; i++) {
+          const seat = actingSeat(state);
+          const r = runSearch(publicStateFor(state, seat), { rng: walk, budget: { iterations: 30 } }, config);
+          applyAction(state, seat, r.action);
+        }
+
+        const view = publicStateFor(state, actingSeat(state));
+        for (const iterations of [120, 400]) {
+          const r = runSearch(view, { rng: createRng(seed * 13), budget: { iterations } }, config);
+          expect(`${actionKey(r.action)} ${r.visits} ${r.value.toFixed(6)}`).toBe(
+            expected[`${seed}/${iterations}`],
+          );
+        }
       }
-    }
-  });
+    });
+  }
 });
 
 /**
@@ -545,5 +582,88 @@ describe('first play urgency', () => {
 
   it('leaves the default alone', () => {
     expect(DEFAULT_SEARCH.firstPlay).toBe(Infinity);
+  });
+});
+
+/**
+ * Naming an edge by the coin's unit rather than by the slot it sits in.
+ *
+ * The claim is narrow and checkable: the same move, offered twice because the
+ * player holds two identical coins, is one edge and not two. Whether that wins
+ * games is the arena's business — but a search that cannot tell the same move
+ * from itself is spending its budget rediscovering it.
+ */
+describe('edges named by unit', () => {
+  /** A position deep enough to hold duplicate coins and a wide legal list. */
+  function walkedIn(seed: number): GameState {
+    const state = game(seed);
+    const rng = createRng(seed);
+    for (let i = 0; i < 30 && state.phase !== 'finished'; i++) {
+      const seat = actingSeat(state);
+      applyAction(state, seat, HeuristicBot.chooseMove(publicStateFor(state, seat), { rng, budget: {} }));
+    }
+    return state;
+  }
+
+  it('leaves nothing to merge when the keys are slots, so the descent is unchanged', () => {
+    // The rewrite that made the merge possible — pairing each edge with the
+    // action *this* sample offers — is only invisible with slot keys if slot
+    // keys never collide in the first place. They do not: the coin index is part
+    // of the name, and the engine lists each slot once.
+    let lists = 0;
+    for (const seed of [3, 7, 11, 17, 23]) {
+      const state = walkedIn(seed);
+      if (state.phase === 'finished') continue;
+      const legal = legalMoves(state);
+      expect(new Set(legal.map((a) => actionKey(a))).size).toBe(legal.length);
+      lists++;
+    }
+    expect(lists).toBeGreaterThan(2);
+  });
+
+  it('gives one name to a move two identical coins can pay for', () => {
+    // Built rather than searched for: a hand with two coins of one unit, both
+    // able to buy the same move.
+    const state = game(3);
+    const me = state.players[0]!;
+    const unit = me.units[0]!;
+    state.turn = 0;
+    state.pending = [];
+    // Coins are moved, never conjured — the bag is where a hand comes from.
+    me.bag.push(...me.hand);
+    me.hand = [];
+    for (let i = 0; i < 2; i++) {
+      const at = me.bag.indexOf(unit);
+      expect(at).toBeGreaterThanOrEqual(0);
+      me.bag.splice(at, 1);
+      me.hand.push(unit);
+    }
+
+    const legal = legalMoves(state);
+    const slots = new Set(legal.map((a) => actionKey(a)));
+    const moves = new Set(legal.map((a) => moveKey(a, me.hand, state.pending)));
+    expect(slots.size).toBe(legal.length);
+    expect(moves.size).toBeLessThan(slots.size);
+  });
+
+  it('tells the two meanings of skip apart', () => {
+    // As the defender it is «let it land on me»; as the attacker, «stay put».
+    // One name gave them one edge and one pool of statistics.
+    const absorb = moveKey({ type: 'skip' }, [], [
+      { kind: 'absorbHit', seat: 1, target: '5,1', by: { hex: '5,2', unit: 'swordsman', seat: 0 }, options: [{ from: 'supply' }] },
+    ]);
+    const stay = moveKey({ type: 'skip' }, [], [{ kind: 'optionalMove', hex: '5,2', source: 'swordsman' }]);
+    expect(absorb).not.toBe(stay);
+  });
+
+  it('is on by default, and the fallback still plays a legal game', () => {
+    expect(DEFAULT_SEARCH.unitKeys).toBe(true);
+    const state = game(5);
+    const bot = createSearchBot({ iterations: 40, unitKeys: false }, 'slots');
+    const rng = createRng(2);
+    for (let i = 0; i < 40 && state.phase !== 'finished'; i++) {
+      const seat = actingSeat(state);
+      applyAction(state, seat, bot.chooseMove(publicStateFor(state, seat), { rng, budget: {} }));
+    }
   });
 });

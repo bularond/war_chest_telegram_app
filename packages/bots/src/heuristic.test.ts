@@ -8,15 +8,17 @@ import {
   applyAction,
   createGame,
   createRng,
+  distinctMoves,
   publicStateFor,
   UNITS,
+  type GameAction,
   type GameState,
   type HexId,
   type UnitId,
 } from '@wc/shared';
 import { describe, expect, it } from 'vitest';
 import { GreedyBot } from './baseline.js';
-import { createHeuristicBot, DEFAULT_WEIGHTS, HeuristicBot } from './heuristic.js';
+import { createHeuristicBot, DEFAULT_WEIGHTS, HeuristicBot, rankActions } from './heuristic.js';
 import type { Bot } from './types.js';
 
 function game(units: [UnitId[], UnitId[]], seed = 1): GameState {
@@ -320,3 +322,151 @@ const VALUE_ORDER: UnitId[] = [
   'footman',
 ];
 
+
+/**
+ * The Infiltrator walks onto a location the other side holds and takes it. Its
+ * action carries a `to`, so the shape test claimed it before the card was ever
+ * consulted and it ranked as a plain move — two drawers below a control, and
+ * below a winning one at that. Same defect as the six cards that carry neither
+ * a `to` nor a `target`, and the fix for those missed it because that fix was
+ * also written about shapes.
+ */
+describe('the Infiltrator', () => {
+  function sneaking(): GameState {
+    const g = createGame({
+      id: 'infil',
+      size: 2,
+      seed: 4,
+      sets: ['nightfall'],
+      seats: [
+        { userId: 'a', displayName: 'A' },
+        { userId: 'b', displayName: 'B' },
+      ],
+      fixedUnits: [
+        ['infiltrator', 'knight', 'scout', 'archer'],
+        ['swordsman', 'footman', 'ensign', 'cavalry'],
+      ],
+    });
+    g.turn = 0;
+    g.units = {};
+    // Standing next to a location the other side holds. Nothing of ours is
+    // controlled, so there is nowhere to deploy and the choice is between the
+    // walk and the tactic — which is the comparison this is about.
+    g.units['5,2'] = { unit: 'infiltrator', team: 0, seat: 0, coins: 1 };
+    g.control = { '4,3': 1 } as GameState['control'];
+    hand(g, 0, ['infiltrator', 'knight']);
+    return g;
+  }
+
+  it('ranks seizing a location above walking next to one', () => {
+    const view = publicStateFor(sneaking(), 0);
+    const seize = view.legal.findIndex((a) => a.type === 'tactic' && a.to === '4,3');
+    const walk = view.legal.findIndex((a) => a.type === 'move');
+    expect(seize).toBeGreaterThanOrEqual(0);
+    expect(walk).toBeGreaterThanOrEqual(0);
+
+    const ranked = rankActions(view, view.legal);
+    expect(ranked[seize]!).toBeLessThan(ranked[walk]!);
+
+    // And with the ranking off it is a plain move, filed by the `to` it carries
+    // — the behaviour this is a fix for.
+    const old = rankActions(view, view.legal, { ...DEFAULT_WEIGHTS, rankTactics: false });
+    expect(old[seize]!).toBe(old[walk]!);
+  });
+
+  it('plays it', () => {
+    const g = sneaking();
+    const chosen = HeuristicBot.chooseMove(publicStateFor(g, 0), ctx());
+    expect(chosen.type).toBe('tactic');
+    expect((chosen as { to?: string }).to).toBe('4,3');
+  });
+});
+
+/**
+ * «The unit that was most recently maneuvered» — the chart's third tiebreak when
+ * recruiting. A maneuver is one of three things: move, control, attack.
+ *
+ * This read any log entry carrying a `unit`, which meant deploys, bolsters and
+ * recruits counted as maneuvers and the two entries it actually wanted did not:
+ * the engine logged a move as `{from,to}` and a control as `{hex}`, with no unit
+ * anywhere. Worse, `poison` writes the name of the *victim* under the poisoner's
+ * seat, so an enemy unit could be read back as one of ours.
+ */
+describe('the most recently maneuvered unit', () => {
+  it('sees a move, which used to be invisible', () => {
+    const g = game([['knight', 'scout', 'archer', 'swordsman'], ['footman', 'cavalry', 'ensign', 'lancer']]);
+    g.units = {};
+    g.units['5,2'] = { unit: 'knight', team: 0, seat: 0, coins: 1 };
+    hand(g, 0, ['knight']);
+    const move = publicStateFor(g, 0).legal.find((a) => a.type === 'move');
+    expect(move).toBeDefined();
+    applyAction(g, 0, move!);
+    const entry = g.log[g.log.length - 1]!;
+    expect(entry.kind).toBe('move');
+    expect(entry.params.unit).toBe('knight');
+  });
+
+  it('sees a control', () => {
+    const g = game([['knight', 'scout', 'archer', 'swordsman'], ['footman', 'cavalry', 'ensign', 'lancer']]);
+    g.units = {};
+    g.units['4,0'] = { unit: 'knight', team: 0, seat: 0, coins: 1 };
+    delete g.control['4,0'];
+    hand(g, 0, ['knight']);
+    const control = publicStateFor(g, 0).legal.find((a) => a.type === 'control');
+    expect(control).toBeDefined();
+    applyAction(g, 0, control!);
+    const entry = g.log.find((e) => e.kind === 'control');
+    expect(entry?.params.unit).toBe('knight');
+  });
+});
+
+/**
+ * A move payable with either of two identical coins is one move, and the draw
+ * inside a drawer has to treat it as one. The legal list holds one entry per
+ * hand slot, so it appeared twice and was drawn twice as often — a preference
+ * for moves the player happens to hold spare change for, which is not a rule
+ * anybody wrote down.
+ *
+ * Checked on the list rather than on the bot's output: what the bot draws from
+ * has already been through the priority lists, and those often narrow a drawer
+ * to one unit's moves, which would hide the thing this is about.
+ */
+describe('drawing inside a drawer', () => {
+  it('counts a move once however many coins could pay for it', () => {
+    const g = game([['knight', 'scout', 'archer', 'swordsman'], ['footman', 'cavalry', 'ensign', 'lancer']]);
+    g.units = {};
+    g.units['5,2'] = { unit: 'knight', team: 0, seat: 0, coins: 1 };
+    g.units['5,4'] = { unit: 'scout', team: 0, seat: 0, coins: 1 };
+    // Two Knight coins and one Scout: every Knight move is listed twice.
+    hand(g, 0, ['knight', 'knight', 'scout']);
+    const view = publicStateFor(g, 0);
+    const hand0 = g.players[0]!.hand;
+
+    const moves = view.legal.filter((a) => a.type === 'move');
+    const once = distinctMoves(moves, hand0, view.pending);
+    expect(moves.length).toBeGreaterThan(once.length);
+
+    const knightMoves = (list: readonly GameAction[]) =>
+      list.filter((a) => 'from' in a && a.from === '5,2').length;
+    const scoutMoves = (list: readonly GameAction[]) =>
+      list.filter((a) => 'from' in a && a.from === '5,4').length;
+    // Two to one before, one to one after — and the Knight has no more places to
+    // go than the Scout does.
+    expect(knightMoves(moves)).toBe(2 * knightMoves(once));
+    expect(scoutMoves(moves)).toBe(scoutMoves(once));
+    expect(knightMoves(once)).toBe(scoutMoves(once));
+  });
+
+  it('is on by default, and switching it off restores the old draw', () => {
+    expect(DEFAULT_WEIGHTS.uniformMoves).toBe(true);
+    const g = game([['knight', 'scout', 'archer', 'swordsman'], ['footman', 'cavalry', 'ensign', 'lancer']]);
+    g.units = {};
+    g.units['5,2'] = { unit: 'knight', team: 0, seat: 0, coins: 1 };
+    hand(g, 0, ['knight', 'knight']);
+    const old = createHeuristicBot({ ...DEFAULT_WEIGHTS, uniformMoves: false }, 'slots');
+    // Both still play something legal; only the odds differ.
+    const view = publicStateFor(g, 0);
+    expect(view.legal).toContainEqual(old.chooseMove(view, ctx()));
+    expect(view.legal).toContainEqual(HeuristicBot.chooseMove(view, ctx()));
+  });
+});

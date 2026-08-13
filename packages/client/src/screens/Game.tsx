@@ -52,6 +52,7 @@ const HEX_FIELDS: Record<string, readonly string[]> = {
   followLift: ['hex'],
   followPlace: ['to'],
   followBuildFort: ['hex'],
+  followTactic: ['from', 'subject', 'to', 'target'],
 };
 
 /** The hexes this action actually names, in tap order. */
@@ -211,6 +212,7 @@ function confirmLabel(a: GameAction, forced: boolean): string {
     case 'followBuildFort':
       return 'Возвести укрепление';
     case 'tactic':
+    case 'followTactic':
       return forced ? 'Применить тактику' : 'Тактика';
     default:
       return 'Подтвердить';
@@ -847,7 +849,11 @@ function Table({ view }: { view: GameView }) {
           <h3 style={{ fontSize: 19, margin: '0 0 3px' }}>Королевские указы</h3>
           <div className="muted" style={{ fontSize: 11, marginBottom: 12 }}>
             Каждый указ доступен стороне один раз. Печатей осталось:{' '}
-            {view.players[view.you]?.seals ?? 0}
+            {/* Печати общие на сторону: вчетвером их три на команду, а лежат
+                они у одного из союзников. */}
+            {view.players
+              .filter((p) => p.team === view.players[view.you]?.team)
+              .reduce((n, p) => n + p.seals, 0)}
           </div>
           <div className="stack" style={{ gap: 8 }}>
             {view.decrees.map((d) => {
@@ -965,6 +971,8 @@ function describeStep(step: GameView['pending'][number], view: GameView): string
       return 'Изъять монету из запаса?';
     case 'deceive':
       return 'Кому подбросить обманку?';
+    case 'freeTactic':
+      return `${UNITS[step.unit].name.ru}: тактика бесплатно`;
   }
 }
 

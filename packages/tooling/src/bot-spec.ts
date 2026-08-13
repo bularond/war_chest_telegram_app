@@ -27,6 +27,7 @@ export type SearchKnobs = Partial<
     | 'firstPlay'
     | 'levelLeaves'
     | 'rolloutNoise'
+    | 'unitKeys'
   >
 > & {
   /**
@@ -51,6 +52,12 @@ export type SearchKnobs = Partial<
    * six were measured at 1401 chances and none taken.
    */
   readonly rankTactics?: boolean;
+  /**
+   * Whether the rollout policy draws over moves or over hand slots. Part of the
+   * same idea as `unitKeys` above and measured with it: a move payable with
+   * either of two identical coins is one move.
+   */
+  readonly uniformMoves?: boolean;
 };
 
 export type BotSpec =
@@ -68,14 +75,18 @@ export function botFromSpec(spec: BotSpec): Bot {
     if (!bot) throw new Error(`unknown bot "${spec.name}"`);
     return bot;
   }
-  const { quickRollouts, draftBy, rankTactics, ...knobs } = spec.knobs ?? {};
+  const { quickRollouts, draftBy, rankTactics, uniformMoves, ...knobs } = spec.knobs ?? {};
+  const tuned = {
+    ...(rankTactics === undefined ? {} : { rankTactics }),
+    ...(uniformMoves === undefined ? {} : { uniformMoves }),
+  };
   const policy = (over: Partial<typeof DEFAULT_WEIGHTS>, name: string) =>
-    createHeuristicBot({ ...DEFAULT_WEIGHTS, ...(rankTactics === undefined ? {} : { rankTactics }), ...over }, name);
+    createHeuristicBot({ ...DEFAULT_WEIGHTS, ...tuned, ...over }, name);
   return createSearchBot(
     {
       ...knobs,
       weights: spec.weights,
-      ...(quickRollouts || rankTactics !== undefined
+      ...(quickRollouts || Object.keys(tuned).length > 0
         ? { rolloutBot: policy(quickRollouts ? { quick: true } : {}, quickRollouts ? 'quick' : 'policy') }
         : {}),
       ...(draftBy ? { draftBot: policy({ draftBy }, `draft-${draftBy}`) } : {}),

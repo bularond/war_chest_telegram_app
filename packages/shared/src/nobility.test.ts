@@ -3,7 +3,8 @@
 import { describe, expect, it } from 'vitest';
 import { STARTING_LOCATIONS } from './board.js';
 import { DECREE_IDS, type DecreeId } from './decrees.js';
-import { applyAction, canProclaim, legalActions } from './engine.js';
+import { applyAction, canProclaim, legalActions, sealsLeft } from './engine.js';
+import { checkInvariants } from './invariants.js';
 import { createGame } from './setup.js';
 import type { GameAction, GameState } from './types.js';
 import type { CoinId, UnitId } from './units.js';
@@ -347,5 +348,60 @@ describe('decrees that can no longer be carried out', () => {
     for (const action of legalActions(g, 0)) {
       expect(action).toEqual({ type: 'skip' });
     }
+  });
+});
+
+/**
+ * Seals belong to the side, not to the seat.
+ *
+ * «Give each side the 3 Proclamation Seals that match their faction… In the
+ * four-player game, each team shares the three Seals they are given» — Nobility
+ * rulebook, set-up and Proclaim; the box holds six in all. Setup used to hand
+ * every player their own three, which is right in a duel and doubles a team's
+ * pool with four at the table. `invariants.ts` asserted the doubled sum as
+ * correct, so the two agreed with each other and neither agreed with the box.
+ */
+describe('seals with four at the table', () => {
+  const four = () =>
+    createGame({
+      id: 'four',
+      size: 4,
+      seed: 11,
+      sets: ['nobility'],
+      seats: [
+        { userId: 'a', displayName: 'A' },
+        { userId: 'b', displayName: 'B' },
+        { userId: 'c', displayName: 'C' },
+        { userId: 'd', displayName: 'D' },
+      ],
+    });
+
+  it('gives each team three, not three apiece', () => {
+    const g = four();
+    for (const team of [0, 1]) {
+      expect(g.players.filter((p) => p.team === team).reduce((n, p) => n + p.seals, 0)).toBe(3);
+    }
+    expect(checkInvariants(g)).toEqual([]);
+  });
+
+  it('lets either teammate spend out of the shared pool', () => {
+    const g = four();
+    // The pool is stored on one seat; the other must still be able to proclaim,
+    // or half a team is locked out of a rule the box says it shares.
+    const [first, , partner] = g.players;
+    expect(first!.team).toBe(partner!.team);
+    expect(first!.seals).toBe(3);
+    expect(partner!.seals).toBe(0);
+    expect(sealsLeft(g, partner!.team)).toBe(3);
+  });
+
+  it('still gives a duellist three of their own', () => {
+    const g = game(['knight', 'scout', 'archer', 'swordsman'], ['footman', 'cavalry', 'ensign', 'lancer'], [
+      'enlist',
+      'march',
+      'guard',
+    ]);
+    expect(sealsLeft(g, 0)).toBe(3);
+    expect(sealsLeft(g, 1)).toBe(3);
   });
 });

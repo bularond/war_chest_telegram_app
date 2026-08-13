@@ -157,6 +157,8 @@ export function checkPlan(proposals: readonly Proposal[]): string[] {
     'levelLeaves',
     'rolloutNoise',
     'rankTactics',
+    'unitKeys',
+    'uniformMoves',
   ]);
   const modes = new Set(['random', 'draft', 'ban']);
   const boxes = new Set(['base', 'nobility', 'siege', 'nightfall']);

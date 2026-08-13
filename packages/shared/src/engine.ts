@@ -251,12 +251,35 @@ export function canExecuteDecree(state: GameState, seat: Seat, decree: DecreeId)
   }
 }
 
+/**
+ * Seals belong to the side, not to the seat.
+ *
+ * «Give each side the 3 Proclamation Seals that match their faction… In the
+ * four-player game, each team shares the three Seals they are given» — Nobility
+ * rulebook, set-up and Proclaim. In a duel a side is one player and the
+ * distinction never shows; with four at the table it is the difference between
+ * three Seals and six. `PlayerState.seals` stays the storage — a team's pool is
+ * the sum over its seats, and setup hands the three to one of them.
+ */
+export function sealsLeft(state: GameState, team: Team): number {
+  let n = 0;
+  for (const p of state.players) if (p.team === team) n += p.seals;
+  return n;
+}
+
+/** Takes one Seal out of the side's shared pool. */
+function spendSeal(state: GameState, team: Team): void {
+  const holder = state.players.find((p) => p.team === team && p.seals > 0);
+  if (!holder) throw new Error('no seals left');
+  holder.seals -= 1;
+}
+
 /** Whether this seat may still put a Seal on that Decree. */
 export function canProclaim(state: GameState, seat: Seat, decree: DecreeId): boolean {
   const me = player(state, seat);
   const card = state.decrees.find((d) => d.id === decree);
   if (!card) return false;
-  if (me.seals <= 0) return false;
+  if (sealsLeft(state, me.team) <= 0) return false;
   if (card.seals.includes(me.team)) return false;
   return canExecuteDecree(state, seat, decree);
 }
@@ -790,6 +813,24 @@ function pendingActions(state: GameState, seat: Seat, step: PendingStep): GameAc
       if (out.length === 0) out.push({ type: 'skip' });
       break;
     }
+    case 'freeTactic': {
+      // The same generator a paid tactic uses, with the coin taken back out:
+      // whatever the card can do costs nothing here, and nothing else changes.
+      for (const action of tacticActions(state, seat, -1, step.unit)) {
+        if (action.type !== 'tactic') continue;
+        out.push({
+          type: 'followTactic',
+          from: action.from,
+          ...(action.to === undefined ? {} : { to: action.to }),
+          ...(action.target === undefined ? {} : { target: action.target }),
+          ...(action.subject === undefined ? {} : { subject: action.subject }),
+        });
+      }
+      // "You may" — and the card is silent about the case where the unit is
+      // nowhere on the board, which is the usual one right after recruiting it.
+      out.push({ type: 'skip' });
+      break;
+    }
     case 'decreeLift': {
       const me = player(state, seat);
       for (const hex of ownUnits(state, seat)) {
@@ -1003,7 +1044,11 @@ function moveStack(state: GameState, from: HexId, to: HexId): void {
 
 function placeControl(state: GameState, hex: HexId, team: Team, seat: Seat): void {
   state.control[hex] = team;
-  log(state, seat, 'control', { hex });
+  // `unit` as well as `hex`: control is one of the three maneuvers, and a rule
+  // like the chart's "the unit that was most recently maneuvered" has to be able
+  // to tell which unit did it. A `move` entry carries it for the same reason.
+  const actor = state.units[hex]?.unit;
+  log(state, seat, 'control', actor ? { hex, unit: actor } : { hex });
   if (markersRemaining(state, team) === 0) {
     state.phase = 'finished';
     state.winner = team;
@@ -1072,6 +1117,20 @@ function applyPoison(
   if (!target) return;
   target.poisonedBy = poisoner;
   log(state, seat, 'poison', { unit: target.unit });
+}
+
+/**
+ * Pushes the steps a unit's attributes create the moment a coin of it is
+ * recruited. Only the Saboteur has one: "After you recruit a Saboteur, you may
+ * use the Saboteur's tactic."
+ *
+ * The step is pushed whether or not a Saboteur is standing anywhere, and
+ * `pendingActions` answers with a bare skip when none is — the same shape every
+ * other optional step has, and one place fewer for the two halves to disagree.
+ */
+function afterRecruit(state: GameState, seat: Seat, unit: UnitId): void {
+  if (!hasAttribute(unit, 'tacticOnRecruit')) return;
+  state.pending.push({ kind: 'freeTactic', unit, source: 'saboteur' });
 }
 
 /** Pushes the pending steps a unit's attributes create after it acts. */
@@ -1283,6 +1342,7 @@ function applyCoinAction(state: GameState, seat: Seat, action: CoinAction): void
           state.pending.push({ kind: 'maneuverUnit', hex, source: 'mercenary', optional: true });
         }
       }
+      afterRecruit(state, seat, action.unit);
       break;
     }
     case 'deploy': {
@@ -1313,7 +1373,7 @@ function applyCoinAction(state: GameState, seat: Seat, action: CoinAction): void
     case 'move': {
       discardCoin(state, seat, action.coin, true);
       moveStack(state, action.from, action.to);
-      log(state, seat, 'move', { from: action.from, to: action.to });
+      log(state, seat, 'move', { from: action.from, to: action.to, unit: state.units[action.to]!.unit });
       afterManeuver(state, action.to, seat, 'move');
       break;
     }
@@ -1335,7 +1395,7 @@ function applyCoinAction(state: GameState, seat: Seat, action: CoinAction): void
       discardCoin(state, seat, action.coin, true);
       const card = state.decrees.find((d) => d.id === action.decree);
       if (!card) throw new Error('no such decree');
-      me.seals -= 1;
+      spendSeal(state, me.team);
       card.seals.push(me.team);
       startDecree(state, seat, action.decree);
       break;
@@ -1390,7 +1450,7 @@ function applyFollowUp(state: GameState, seat: Seat, action: FollowUpAction): vo
   switch (action.type) {
     case 'followMove': {
       moveStack(state, action.from, action.to);
-      log(state, seat, 'move', { from: action.from, to: action.to });
+      log(state, seat, 'move', { from: action.from, to: action.to, unit: state.units[action.to]!.unit });
       afterManeuver(state, action.to, seat, 'move');
       break;
     }
@@ -1423,6 +1483,7 @@ function applyFollowUp(state: GameState, seat: Seat, action: FollowUpAction): vo
           state.pending.push({ kind: 'maneuverUnitLimited', hex, allow: ['move', 'attack'] });
         }
       }
+      afterRecruit(state, seat, action.unit);
       break;
     }
     case 'followLift': {
@@ -1488,7 +1549,7 @@ function applyFollowUp(state: GameState, seat: Seat, action: FollowUpAction): vo
       const me = player(state, seat);
       // The Earl proclaims for free: no Seal, and a used Decree still works.
       if (step.kind === 'proclaim' && !step.free) {
-        me.seals -= 1;
+        spendSeal(state, me.team);
         card.seals.push(me.team);
       }
       startDecree(state, seat, action.decree);
@@ -1502,6 +1563,15 @@ function applyFollowUp(state: GameState, seat: Seat, action: FollowUpAction): vo
       owner.supply[action.unit] = left - 1;
       owner.removed[action.unit] = (owner.removed[action.unit] ?? 0) + 1;
       log(state, seat, 'burn', { unit: action.unit });
+      break;
+    }
+    case 'followTactic': {
+      if (step.kind !== 'freeTactic') throw new Error('no tactic is on offer');
+      // The coin index is the one thing this action does not carry, and
+      // `applyTactic` never reads it — paying is the caller's business, and here
+      // there is nothing to pay.
+      const { type: _free, ...fields } = action;
+      applyTactic(state, seat, { type: 'tactic', coin: -1, ...fields });
       break;
     }
     case 'followDeceive': {

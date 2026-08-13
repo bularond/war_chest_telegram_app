@@ -185,3 +185,54 @@ describe('decoy coins', () => {
     expect(ends).not.toContain('5,5'); // nothing to skirmish with down there
   });
 });
+
+/**
+ * «After you recruit a Saboteur, you may use the Saboteur's tactic.»
+ *
+ * The attribute was declared on the card and read by nothing at all — two
+ * mentions in `units.ts` and none anywhere else — so the printed ability could
+ * not be reached in any game. The tactic belongs to a Saboteur already standing
+ * on the board: recruiting puts a coin in the discard pile, and nothing is
+ * played from there.
+ */
+describe('the Saboteur, having been recruited', () => {
+  function ready(): GameState {
+    const g = game(['saboteur', 'knight', 'scout', 'archer'], ['swordsman', 'footman', 'ensign', 'cavalry']);
+    g.units['5,2'] = { unit: 'saboteur', team: 0, seat: 0, coins: 1 };
+    g.units['5,0'] = { unit: 'swordsman', team: 1, seat: 1, coins: 1 };
+    setHand(g, 0, ['saboteur', 'knight', 'scout']);
+    return g;
+  }
+
+  it('offers its tactic for free, and it costs no coin', () => {
+    const g = ready();
+    const held = g.players[0]!.hand.length;
+    applyAction(g, 0, find(g, 0, (a) => a.type === 'recruit' && a.unit === 'saboteur'));
+    expect(g.pending[g.pending.length - 1]?.kind).toBe('freeTactic');
+
+    const poison = find(g, 0, (a) => a.type === 'followTactic' && a.target === '5,0');
+    applyAction(g, 0, poison);
+    expect(g.units['5,0']!.poisonedBy).toBe('saboteur');
+    // One coin left the hand: the one that paid for the recruit. The tactic is
+    // free, which is the whole of what the card says.
+    expect(g.players[0]!.hand.length).toBe(held - 1);
+  });
+
+  it('may be declined', () => {
+    const g = ready();
+    applyAction(g, 0, find(g, 0, (a) => a.type === 'recruit' && a.unit === 'saboteur'));
+    expect(legalActions(g, 0).some((a) => a.type === 'skip')).toBe(true);
+    applyAction(g, 0, { type: 'skip' });
+    expect(g.units['5,0']!.poisonedBy).toBeUndefined();
+    expect(g.pending).toHaveLength(0);
+  });
+
+  it('asks nothing when no Saboteur is on the board', () => {
+    const g = ready();
+    delete g.units['5,2'];
+    applyAction(g, 0, find(g, 0, (a) => a.type === 'recruit' && a.unit === 'saboteur'));
+    // The step is still pushed — legality is one place, not two — and the only
+    // answer to it is to pass.
+    expect(legalActions(g, 0)).toEqual([{ type: 'skip' }]);
+  });
+});

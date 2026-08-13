@@ -32,8 +32,10 @@ import {
   actionKey,
   applyAction,
   isTerminal,
+  distinctMoves,
   legalMoves,
   markersRemaining,
+  moveKey,
   nextFloat,
   nextInt,
   sampleDeterminization,
@@ -120,6 +122,15 @@ export interface SearchSettings {
    */
   readonly draftBot: Bot;
   /**
+   * Name an edge by the coin's *unit* rather than by the slot it sits in, and
+   * tell the two meanings of `skip` apart. See `moveKey`.
+   *
+   * Off is what this always did, and it is kept only so the change can be
+   * measured: everything about it says it should help, and everything about the
+   * five attempts at first-play urgency said the same.
+   */
+  readonly unitKeys: boolean;
+  /**
    * Iterations between clock checks. Reading the clock is not free and the
    * answer cannot change much in a handful of iterations.
    */
@@ -149,6 +160,7 @@ export const DEFAULT_SEARCH: SearchSettings = {
   // decorrelation is worth having. The optimum is narrow and sits near zero.
   rolloutNoise: 0.15,
   draftBot: HeuristicBot,
+  unitKeys: true,
   checkEvery: 32,
 };
 
@@ -162,15 +174,21 @@ interface Edge {
   child: Node | null;
 }
 
+/**
+ * A point in the tree. It carries no seat: who owes the decision here depends on
+ * the determinization, not on the node — an attack leads to a step the defender
+ * answers only when the defender holds something to answer with, and what they
+ * hold is exactly what the search is guessing at. The field existed, was written
+ * on the first sample to arrive, and was read by nothing; the seat that matters
+ * is read from the state in `iterate`.
+ */
 interface Node {
-  /** Who chooses here. Not always the seat whose turn it is — see `actingSeat`. */
-  readonly seat: Seat;
   readonly edges: Map<string, Edge>;
   visits: number;
 }
 
-function newNode(seat: Seat): Node {
-  return { seat, edges: new Map(), visits: 0 };
+function newNode(): Node {
+  return { edges: new Map(), visits: 0 };
 }
 
 export function createSearchBot(
@@ -207,7 +225,7 @@ export function runSearch(
   ctx: BotContext,
   config: SearchSettings = DEFAULT_SEARCH,
 ): SearchReport {
-  const root = newNode(view.acting);
+  const root = newNode();
   const now = ctx.now ?? (() => performance.now());
   const deadline = ctx.budget.ms === undefined ? Infinity : now() + ctx.budget.ms;
   const cap = ctx.budget.ms === undefined ? (ctx.budget.iterations ?? config.iterations) : Infinity;
@@ -254,6 +272,24 @@ function search(view: GameView, ctx: BotContext, config: SearchSettings): GameAc
  */
 const NO_CHECK = { validate: false } as const;
 
+/**
+ * How this node will name its edges, bound once per descent step.
+ *
+ * The hand and the pending stack are read here rather than inside the loop over
+ * the legal moves: both are the same for every move offered at this point, and
+ * the loop runs on every iteration of the search.
+ */
+function keyer(
+  state: GameState,
+  acting: Seat,
+  config: SearchSettings,
+): (action: GameAction) => string {
+  if (!config.unitKeys) return actionKey;
+  const hand = state.players[acting]?.hand;
+  const pending = state.pending;
+  return (action) => moveKey(action, hand, pending);
+}
+
 function iterate(root: Node, view: GameView, rng: RngState, config: SearchSettings): void {
   const state = sampleDeterminization(view, rng);
   /** Edges taken, each with the seat that actually took it in *this* sample. */
@@ -279,15 +315,34 @@ function iterate(root: Node, view: GameView, rng: RngState, config: SearchSettin
      * than as a broken bot.
      */
     const acting = actingSeat(state);
+    const key = keyer(state, acting, config);
 
+    /**
+     * The edges already in the tree, each paired with the action *as this
+     * sample offers it*.
+     *
+     * The pairing is what makes a merged key safe. An edge stores the action it
+     * was created with, and that action names a coin by the slot it sat in
+     * several determinizations ago — a slot that now holds something else. Once
+     * two slots share one edge, replaying the stored action would be replaying
+     * a move nobody offered. So the edge carries the statistics and this
+     * sample's list carries the move.
+     */
     const known: Edge[] = [];
+    const asOffered: GameAction[] = [];
     const fresh: GameAction[] = [];
+    // Two coins of one unit make one move offered twice; the second copy has
+    // nothing to add to either list.
+    const seen = new Set<string>();
     for (const action of legal) {
-      const key = actionKey(action);
-      const edge = node.edges.get(key);
+      const name = key(action);
+      if (seen.has(name)) continue;
+      seen.add(name);
+      const edge = node.edges.get(name);
       if (edge) {
         edge.availability++;
         known.push(edge);
+        asOffered.push(action);
       } else {
         fresh.push(action);
       }
@@ -312,23 +367,24 @@ function iterate(root: Node, view: GameView, rng: RngState, config: SearchSettin
     if (fresh.length > 0 && urgency >= bestUcb(known, config.exploration)) {
       const action = fresh[nextInt(rng, fresh.length)] as GameAction;
       const edge: Edge = { action, visits: 0, value: 0, availability: 1, child: null };
-      node.edges.set(actionKey(action), edge);
+      node.edges.set(key(action), edge);
       path.push({ edge, seat: acting });
       applyAction(state, acting, action, NO_CHECK);
       break;
     }
     if (known.length === 0) break;
 
-    const edge = selectByUcb(known, config.exploration, rng);
+    const chosen = selectByUcb(known, config.exploration, rng);
+    const edge = known[chosen] as Edge;
     path.push({ edge, seat: acting });
-    applyAction(state, acting, edge.action, NO_CHECK);
-    if (!edge.child) edge.child = newNode(isTerminal(state) ? acting : actingSeat(state));
+    applyAction(state, acting, asOffered[chosen] as GameAction, NO_CHECK);
+    if (!edge.child) edge.child = newNode();
     node = edge.child;
     node.visits++;
   }
 
   // ── play on, then score what we ended up with ────────────────────────────
-  rollout(state, rng, config.rolloutDepth, config.rolloutBot, config.rolloutNoise);
+  rollout(state, rng, config.rolloutDepth, config.rolloutBot, config.rolloutNoise, config.unitKeys);
   if (config.levelLeaves) levelOff(state, rng, view, config.rolloutBot);
   const score = evaluate(state, view.you, config.weights);
 
@@ -361,23 +417,24 @@ function bestUcb(edges: readonly Edge[], exploration: number): number {
   return best;
 }
 
-function selectByUcb(edges: readonly Edge[], exploration: number, rng: RngState): Edge {
-  let best: Edge | null = null;
+/** The index of the chosen edge, so the caller can reach its parallel action. */
+function selectByUcb(edges: readonly Edge[], exploration: number, rng: RngState): number {
+  let best = -1;
   let bestScore = -Infinity;
   let ties = 0;
-  for (const edge of edges) {
-    const score = ucb(edge, exploration);
+  for (let i = 0; i < edges.length; i++) {
+    const score = ucb(edges[i] as Edge, exploration);
     if (score > bestScore) {
       bestScore = score;
-      best = edge;
+      best = i;
       ties = 1;
     } else if (score === bestScore) {
       // Reservoir sampling, so equal moves are not decided by iteration order.
       ties++;
-      if (nextInt(rng, ties) === 0) best = edge;
+      if (nextInt(rng, ties) === 0) best = i;
     }
   }
-  if (!best) {
+  if (best < 0) {
     // Every comparison against `NaN` is false, so a single non-finite score
     // leaves nothing chosen. It means the evaluation returned `NaN`, which in
     // practice means a weights file with a missing or non-numeric field — worth
@@ -391,7 +448,14 @@ function selectByUcb(edges: readonly Edge[], exploration: number, rng: RngState)
  * Play on with the heuristic, but not to the end: a War Chest game runs for
  * hundreds of plies, and a full rollout would be both slow and mostly noise.
  */
-function rollout(state: GameState, rng: RngState, depth: number, policy: Bot, noise: number): void {
+function rollout(
+  state: GameState,
+  rng: RngState,
+  depth: number,
+  policy: Bot,
+  noise: number,
+  unitKeys: boolean,
+): void {
   for (let i = 0; i < depth && !isTerminal(state); i++) {
     const seat = actingSeat(state);
     const legal = legalMoves(state);
@@ -401,10 +465,29 @@ function rollout(state: GameState, rng: RngState, depth: number, policy: Bot, no
     // reproducible match becomes incomparable with every one already recorded.
     const action =
       noise > 0 && nextFloat(rng) < noise
-        ? (legal[nextInt(rng, legal.length)] as GameAction)
+        ? drawUniformly(state, seat, legal, rng, unitKeys)
         : policy.chooseMove(searchView(state, seat, legal), { rng, budget: {} });
     applyAction(state, seat, action, NO_CHECK);
   }
+}
+
+/**
+ * A move drawn at random — over the *moves*, not over the entries in the legal
+ * list. The list holds one entry per hand slot, so a move a player can pay for
+ * with either of two identical coins sits in it twice and a draw over the list
+ * picks it twice as often. That is not noise, it is a preference for moves the
+ * player happens to hold spare change for.
+ */
+function drawUniformly(
+  state: GameState,
+  seat: Seat,
+  legal: readonly GameAction[],
+  rng: RngState,
+  unitKeys: boolean,
+): GameAction {
+  if (!unitKeys) return legal[nextInt(rng, legal.length)] as GameAction;
+  const moves = distinctMoves(legal, state.players[seat]?.hand, state.pending);
+  return moves[nextInt(rng, moves.length)] as GameAction;
 }
 
 /**

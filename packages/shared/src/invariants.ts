@@ -177,14 +177,18 @@ function sealsAreConserved(state: GameState, bad: string[]): void {
       placed.set(team, (placed.get(team) ?? 0) + 1);
     }
   }
-  // Setup hands every player their own seals, so a team's pool is per seat and
-  // the tally is summed over the seats on that team.
+  // Three per side, shared by the seats on it — so the tally is summed over the
+  // team and compared against three, not against three per seat. This asserted
+  // the doubled sum for as long as `setup.ts` handed every player its own
+  // three: two wrongs that agreed, which is the only kind an invariant cannot
+  // catch by itself.
   const seats = new Map<number, Seat[]>();
   for (const p of state.players) seats.set(p.team, [...(seats.get(p.team) ?? []), p.seat]);
   for (const [team, members] of seats) {
     const inHand = members.reduce((n, seat) => n + (state.players[seat]?.seals ?? 0), 0);
     const total = inHand + (placed.get(team) ?? 0);
-    const expected = SEALS_PER_SIDE * members.length;
-    if (total !== expected) bad.push(`team ${team} accounts for ${total} seals, expected ${expected}`);
+    if (total !== SEALS_PER_SIDE) {
+      bad.push(`team ${team} accounts for ${total} seals, expected ${SEALS_PER_SIDE}`);
+    }
   }
 }
