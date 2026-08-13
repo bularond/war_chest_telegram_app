@@ -318,14 +318,20 @@ describe('the search, move for move', () => {
   };
 
   const GOLDEN: Record<string, string> = {
-    '3/120': '{"at":"5,-1","coin":0,"type":"bolster"} 10 -0.063963',
-    '3/400': '{"at":"5,-1","coin":0,"type":"bolster"} 38 -0.079141',
-    '7/120': '{"coin":1,"type":"recruit","unit":"warriorPriest"} 8 -0.132623',
-    '7/400': '{"at":"6,5","coin":2,"type":"bolster"} 27 -0.174233',
-    '11/120': '{"coin":1,"to":"3,4","type":"deploy"} 8 -0.076172',
-    '11/400': '{"coin":2,"from":"4,4","to":"4,3","type":"move"} 33 -0.057959',
+    // Re-recorded when the rollout policy learned to play six cards it had never
+    // played: the Marshal, the Ensign, the Earl, the Bishop, the Herald and the
+    // Footman all pick their target on a follow-up step, so the action that
+    // starts them carries neither `target` nor `to` and the heuristic filed them
+    // under housekeeping. 1401 chances over 120 games, none taken. A master is a
+    // lock on the machinery, not on the policy, and the policy changed on
+    // purpose — so these numbers move with it.
+    '3/120': '{"coin":1,"from":"7,1","to":"8,2","type":"move"} 6 0.215898',
+    '3/400': '{"coin":2,"type":"recruit","unit":"mercenary"} 22 0.222416',
+    '7/120': '{"at":"3,3","coin":2,"type":"bolster"} 10 -0.126707',
+    '7/400': '{"at":"3,3","coin":2,"type":"bolster"} 38 -0.142453',
+    '11/120': '{"coin":2,"from":"7,0","to":"8,1","type":"move"} 6 0.120987',
+    '11/400': '{"at":"7,0","coin":2,"type":"bolster"} 22 0.137516',
   };
-
   it('picks the same moves it picked before the copying went', () => {
     const config = {
       ...DEFAULT_SEARCH,
@@ -416,10 +422,15 @@ describe('first play urgency', () => {
   // leaves the best move on 45 visits, -0.8 lifts it to 112-245, -1.2 gives it
   // all 600.
   it('stops the search from having to try every move once', () => {
-    const state = game(5);
-    // Walk in far enough for the branching to be wide.
-    const walk = createRng(5);
-    for (let i = 0; i < 20 && state.phase !== 'finished'; i++) {
+    const state = game(3);
+    // Walk in far enough for the branching to be wide. The walk is the heuristic,
+    // so the position it arrives at moves whenever the heuristic does — it once
+    // landed on a five-move position after the rollout policy learned to play
+    // tactics, and the test then failed on its own setup rather than on anything
+    // it was written to check. Hence the assertion below, which fails loudly
+    // instead of quietly measuring nothing.
+    const walk = createRng(3);
+    for (let i = 0; i < 26 && state.phase !== 'finished'; i++) {
       const seat = actingSeat(state);
       applyAction(state, seat, HeuristicBot.chooseMove(publicStateFor(state, seat), { rng: walk, budget: {} }));
     }

@@ -45,6 +45,12 @@ export type SearchKnobs = Partial<
    * otherwise.
    */
   readonly draftBy?: 'coins' | 'scarcity' | 'random' | 'measured' | 'measured-all' | 'measured-all-660';
+  /**
+   * Whether the rollout policy can reach the six cards whose tactic picks its
+   * target on a follow-up step. Off is how it played until 13 August, when those
+   * six were measured at 1401 chances and none taken.
+   */
+  readonly rankTactics?: boolean;
 };
 
 export type BotSpec =
@@ -62,15 +68,17 @@ export function botFromSpec(spec: BotSpec): Bot {
     if (!bot) throw new Error(`unknown bot "${spec.name}"`);
     return bot;
   }
-  const { quickRollouts, draftBy, ...knobs } = spec.knobs ?? {};
+  const { quickRollouts, draftBy, rankTactics, ...knobs } = spec.knobs ?? {};
+  const policy = (over: Partial<typeof DEFAULT_WEIGHTS>, name: string) =>
+    createHeuristicBot({ ...DEFAULT_WEIGHTS, ...(rankTactics === undefined ? {} : { rankTactics }), ...over }, name);
   return createSearchBot(
     {
       ...knobs,
       weights: spec.weights,
-      ...(quickRollouts
-        ? { rolloutBot: createHeuristicBot({ ...DEFAULT_WEIGHTS, quick: true }, 'quick') }
+      ...(quickRollouts || rankTactics !== undefined
+        ? { rolloutBot: policy(quickRollouts ? { quick: true } : {}, quickRollouts ? 'quick' : 'policy') }
         : {}),
-      ...(draftBy ? { draftBot: createHeuristicBot({ ...DEFAULT_WEIGHTS, draftBy }, `draft-${draftBy}`) } : {}),
+      ...(draftBy ? { draftBot: policy({ draftBy }, `draft-${draftBy}`) } : {}),
     },
     spec.label,
   );

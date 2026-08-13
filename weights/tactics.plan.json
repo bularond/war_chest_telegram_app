@@ -1,0 +1,18 @@
+{
+  "note": "Six cards the rollout policy could not reach.\n\nA player reported the bot walking into the same Marshal punish round after round. The bot's guess at the opponent's hand turned out to be exact — 30 comparisons of the sampler against the arithmetic, largest disagreement 2.26 standard errors — so it knew perfectly well how many Marshal coins were unaccounted for. What it could not do was play the card.\n\nThe heuristic ranks an action by the fields on it: a `target` makes it an attack, a `to` makes it a maneuver, anything else falls to `cleanup`, two drawers below a plain move. Six cards choose their target on a follow-up step and so carry neither field — the Marshal, the Ensign, the Earl, the Bishop, the Herald and the Footman. Measured over 120 games with every box out: offered 1401 times, played none. Not seldom. None. The Marshal's tactic is what makes a War Wagon dangerous to approach, and the Earl's claims a location, which is how the game is won.\n\nRanking them by what they do rather than by what fields they carry takes that class from 0% to 31.9%, which is where the `to`-shaped tactics already sit (34.1%). Two of the six stay at zero and should: the Bishop's and the Herald's plain equivalents — recruit and bolster — are themselves at the bottom of the chart.\n\nThis is a change to the rollout policy, and the rollout is the most sensitive part of this search: throwing its priority lists away costs 202 Elo, and adding 15% noise to it is worth +39. So the sign here is not guessable, and a better-playing policy is not automatically a better rollout. The reversal turns it off.",
+  "proposals": [
+    {
+      "id": "tactics-off",
+      "note": "The old behaviour, written as a reversal because the fix is already in the code. A REJECT says the fix is worth having.",
+      "knobs": { "rankTactics": false },
+      "draftMode": "draft",
+      "sets": ["nobility", "siege", "nightfall"]
+    },
+    {
+      "id": "tactics-off-base",
+      "note": "And the same on the base box alone, where four of the six cards live — the Marshal, the Ensign, the Bishop and the Footman. If the gain is real it should show without the expansions too.",
+      "knobs": { "rankTactics": false },
+      "draftMode": "draft"
+    }
+  ]
+}

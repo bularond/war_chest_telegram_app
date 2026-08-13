@@ -69,6 +69,12 @@ export interface HeuristicWeights {
    * dealt units.
    */
   readonly draftBy: 'coins' | 'scarcity' | 'random' | 'measured' | 'measured-all' | 'measured-all-660';
+  /**
+   * Rank a tactic that chooses its target on a follow-up step by what it will
+   * do, rather than letting it fall to `cleanup` for want of a `target` or a
+   * `to` field. Off is the old behaviour, kept so the change can be measured.
+   */
+  readonly rankTactics: boolean;
 }
 
 export const DEFAULT_WEIGHTS: HeuristicWeights = {
@@ -84,6 +90,7 @@ export const DEFAULT_WEIGHTS: HeuristicWeights = {
   // says nothing about strength, so the old rule was choosing at random with
   // extra steps.
   draftBy: 'measured-all',
+  rankTactics: true,
 };
 
 /**
@@ -239,6 +246,59 @@ function bolsterOpensAKnight(sight: Sight, hex: HexId): boolean {
   return false;
 }
 
+/**
+ * A tactic that chooses its target on the *next* step, ranked by what it will do
+ * rather than by the fields it happens to carry.
+ *
+ * `rankOf` reads an action's shape: a `target` makes it an attack, a `to` makes
+ * it a maneuver, and anything else drops to `cleanup` — two drawers below a
+ * plain move, which the chart reaches only when nothing else exists. Six cards
+ * pick their target on a follow-up step and so carry neither field: the Marshal,
+ * the Ensign, the Earl, the Bishop, the Herald and the Footman.
+ *
+ * Measured before the fix: over 120 games with every box on the table those six
+ * were offered 1401 times and played **none** of them. Not seldom — never. The
+ * Marshal's tactic grants a friendly unit an attack from two spaces away, which
+ * is how a War Wagon punishes anything that comes near it, and no rollout has
+ * ever seen it happen. The Earl's claims a location, which is how the game is
+ * won.
+ *
+ * The fractional ranks keep each of these in a drawer of its own, so `refine`
+ * falls through to the pool untouched: its priority lists read `attackTargetOf`
+ * and `destinationOf`, and those are exactly the fields these actions lack.
+ */
+function bareTacticRank(sight: Sight, action: GameAction): number | undefined {
+  if (!sight.weights.rankTactics) return undefined;
+  if (action.type !== 'tactic') return undefined;
+  if (attackTargetOf(action) !== undefined || destinationOf(action) !== undefined) return undefined;
+  const stack = sight.view.units[action.from];
+  const spec = stack ? UNITS[stack.unit].tactic : undefined;
+  switch (spec?.kind) {
+    // Granting an attack sits just *below* swinging directly: it costs the
+    // Marshal's coin to make somebody else swing, and if a plain attack is on
+    // offer the chart should take it. Measured at 38.7% of the chances it gets.
+    case 'grantManeuver':
+      return spec.maneuver === 'attack' ? RANK.attack + 0.25 : RANK.move - 0.25;
+    // The rest sit just *above* their plain equivalent, because each does what
+    // the plain action does and something more: the Earl claims the location and
+    // proclaims, the Herald bolsters out of the supply rather than out of hand,
+    // the Bishop recruits and then still moves. Placed below at first, and
+    // measured: all four stayed at exactly zero, because their plain equivalent
+    // is available almost always and wins the drawer every time. A fix that
+    // leaves the thing unreachable is not a fix.
+    case 'controlThenProclaim':
+      return controlWins(sight.view) ? RANK.winningControl : RANK.control - 0.25;
+    case 'maneuverEachUnit':
+      return RANK.move - 0.25;
+    case 'recruitThenManeuver':
+      return RANK.recruit - 0.25;
+    case 'bolsterAllyFromSupply':
+      return RANK.bolster - 0.25;
+    default:
+      return undefined;
+  }
+}
+
 function rankOf(sight: Sight, action: GameAction): number {
   const { view, weights } = sight;
 
@@ -290,6 +350,8 @@ function rankOf(sight: Sight, action: GameAction): number {
     return weights.attackBeforeControl ? RANK.attack : RANK.control + 0.5;
   }
   if (destinationOf(action) !== undefined) return RANK.move;
+  const bare = bareTacticRank(sight, action);
+  if (bare !== undefined) return bare;
   return RANK.cleanup;
 }
 
