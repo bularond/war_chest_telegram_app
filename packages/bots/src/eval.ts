@@ -198,8 +198,14 @@ export const BASE_WEIGHTS: EvalWeights = {
   // stalled here twice: its ×2 step from 0.15 reaches 0.3, which is not far
   // enough to show anything.
   reserve: 0.48,
-  // Untried as of eval@5: the symmetric reading of `proximity`.
-  approach: 0,
+  // Accepted 13 August: 424 games, 56.4% [51.6 … 61.1], about +45 Elo, and the
+  // reversal on fresh seeds scored 20.0% over 30 — the fastest verdict this
+  // project has produced. Half again as much weight was worse (354 games,
+  // 47.2%), so 0.41 sits where matching `proximity`'s influence put it.
+  //
+  // Found by reading `canControlHere`, not by an instrument: separating power
+  // cannot tell these two apart at all, and rated them 2.4 against 2.6.
+  approach: 0.41,
   // Untried as of eval@3: material has always been coin counting.
   scarcity: 0,
   reach: 0,
@@ -215,7 +221,10 @@ export const BASE_WEIGHTS: EvalWeights = {
   bolster: 0,
   // Accepted as a feature at 0.2 (912 games, 56.0%, LLR 2.96), then doubled by
   // the same descent that doubled `material`.
-  proximity: 0.4,
+  // Replaced by `approach`, which asks the same question without measuring the
+  // enemy against our list of targets. Zero here is a measured verdict, not a
+  // feature nobody got round to: putting this back costs the game.
+  proximity: 0,
   proximityWalk: 0,
   initiative: 0,
   tempo: 0,

@@ -69,6 +69,7 @@ import {
   type UnitSet,
 } from '@wc/shared';
 import { DEFAULT_FIT, fit, fitToValues, logLoss, normalize, valueLoss, type Sample } from './regress.js';
+import { BANK_FEATURES, BANK_UNITS, rosterVector, unitBank } from './unit-bank.js';
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -86,6 +87,13 @@ const baseSeed = Number(arg('seed', '1'));
 const steps = Number(arg('steps', String(DEFAULT_FIT.steps)));
 const outPath = arg('out', 'weights/fitted.json');
 const target = arg('target', 'outcome');
+/**
+ * Unlock a weight per unit on top of the ordinary features, and report whether
+ * the extra 56 coordinates buy anything on games the fit never saw.
+ */
+const bank = process.argv.includes('--bank');
+/** Games held back, one in this many. Split by *game*, never by position. */
+const folds = Number(arg('folds', '5'));
 if (target !== 'outcome' && target !== 'value') throw new Error('--target is outcome or value');
 /**
  * The weights the collecting search plays and values positions with.
@@ -150,7 +158,9 @@ for (let g = 0; g < games; g++) {
       const report = runSearch(view, { rng, budget: { iterations: searchConfig.iterations } }, searchConfig);
       if (plies > skip && nextInt(rng, 40) < perGame) {
         kept.push({
-          features: featureVector(state, seat),
+          features: bank
+            ? [...featureVector(state, seat), ...rosterVector(state, seat), ...unitBank(state, seat)]
+            : featureVector(state, seat),
           team: state.players[seat]?.team ?? 0,
           value: report.value,
         });
@@ -164,7 +174,12 @@ for (let g = 0; g < games; g++) {
     // roughly `perGame` of them without needing to know the length in advance.
     if (target === 'outcome' && plies > skip && nextInt(rng, 40) < perGame) {
       const me = actingSeat(state);
-      kept.push({ features: featureVector(state, me), team: state.players[me]?.team ?? 0 });
+      kept.push({
+        features: bank
+          ? [...featureVector(state, me), ...rosterVector(state, me), ...unitBank(state, me)]
+          : featureVector(state, me),
+        team: state.players[me]?.team ?? 0,
+      });
     }
   }
 
@@ -185,7 +200,7 @@ for (let g = 0; g < games; g++) {
           : state.winner === k.team
             ? 1
             : 0;
-    samples.push({ features: k.features, result, weight });
+    samples.push({ features: k.features, result, weight, game: g } as Sample & { game: number });
   }
 
   if ((g + 1) % 250 === 0) {
@@ -199,7 +214,74 @@ console.log(`\n\n  ${finished} games finished, ${capped} hit the ply cap`);
 console.log(`  ${samples.length} positions kept\n`);
 if (samples.length === 0) throw new Error('nothing to fit');
 
-const zero = new Array(FEATURES.length).fill(0) as number[];
+/**
+ * Loss on games the fit never saw.
+ *
+ * Until this existed the CLI printed the loss on the very positions it had just
+ * fitted, which always improves and therefore never meant anything — five fitted
+ * vectors in a row looked convincing here and lost their matches.
+ *
+ * The split has to be by game and not by position. Positions from one game share
+ * its result, so a stride over the sample list would put near-duplicates of the
+ * same label on both sides and report a held-out loss that is nothing of the
+ * kind.
+ */
+const withGame = samples as (Sample & { game: number })[];
+const train = withGame.filter((s) => s.game % folds !== 0);
+const test = withGame.filter((s) => s.game % folds === 0);
+const width = samples[0]?.features.length ?? 0;
+if (target === 'outcome' && test.length > 0 && train.length > 0) {
+  const fitOn = (rows: readonly Sample[], keep: number) =>
+    fit(
+      rows.map((r) => ({ ...r, features: r.features.slice(0, keep) })),
+      { ...DEFAULT_FIT, steps },
+    );
+  const lossOf = (rows: readonly Sample[], w: readonly number[], keep: number) =>
+    logLoss(rows.map((r) => ({ ...r, features: r.features.slice(0, keep) })), w);
+
+  console.log(`  ${train.length} positions fitted, ${test.length} held back (${folds}-fold, by game)\n`);
+  console.log(`  ${'model'.padEnd(24)}${'on its own games'.padEnd(20)}on games it never saw`);
+  console.log(`  ${'-'.repeat(64)}`);
+  const plain = fitOn(train, FEATURES.length);
+  console.log(
+    `  ${'the ordinary features'.padEnd(24)}${lossOf(train, plain, FEATURES.length).toFixed(5).padEnd(20)}` +
+      `${lossOf(test, plain, FEATURES.length).toFixed(5)}`,
+  );
+  if (bank) {
+    // Nested models, so each line adds exactly one thing to the one above it.
+    const withRoster = FEATURES.length + BANK_UNITS.length;
+    const rosterFit = fitOn(train, withRoster);
+    const full = fitOn(train, width);
+    const base = lossOf(test, plain, FEATURES.length);
+    const afterRoster = lossOf(test, rosterFit, withRoster);
+    const afterBank = lossOf(test, full, width);
+    console.log(
+      `  ${'and who drafted what'.padEnd(24)}${lossOf(train, rosterFit, withRoster).toFixed(5).padEnd(20)}` +
+        `${afterRoster.toFixed(5)}`,
+    );
+    console.log(
+      `  ${`and ${BANK_FEATURES.length} per-unit terms`.padEnd(24)}${lossOf(train, full, width).toFixed(5).padEnd(20)}` +
+        `${afterBank.toFixed(5)}`,
+    );
+    console.log(
+      `\n  the rosters alone are worth   ${(base - afterRoster).toFixed(5)}  — and a search cannot use it,` +
+        `\n  ${''.padEnd(29)}since the drafted units never change inside a tree` +
+        `\n  the bank beyond the rosters   ${(afterRoster - afterBank).toFixed(5)}  — this is the number that decides`,
+    );
+    const drop = afterRoster - afterBank;
+    console.log(
+      drop <= 0.0005
+        ? '\n  Nothing survives holding the rosters fixed. The bank was reading the draft,\n' +
+            '  which the bot already drafts by and which is worth +140 Elo in the one place\n' +
+            '  it can be used. As an evaluation term it is a constant per game.'
+        : `\n  ${drop.toFixed(5)} survives. That part is positional — it moves inside a game — and\n` +
+            '  is evidence for building the bank properly and then putting it to a match.',
+    );
+  }
+  console.log();
+}
+
+const zero = new Array(width).fill(0) as number[];
 const raw = target === 'value' ? fitToValues(samples, { ...DEFAULT_FIT, steps }) : fit(samples, { ...DEFAULT_FIT, steps });
 if (target === 'value') {
   console.log(`  squared error ${valueLoss(samples, zero).toFixed(4)} → ${valueLoss(samples, raw).toFixed(4)}`);

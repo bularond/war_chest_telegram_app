@@ -1,0 +1,32 @@
+{
+  "note": "A rules-level defect in `proximity`, and its repair.\n\n`proximity` is `closeness(us, open) − closeness(them, open)`, where `open` is defined as the locations *we* do not control. The second term therefore measures the enemy against our list of targets, and the enemy is not trying to reach our list. Two consequences, both wrong about the game.\n\nAn enemy unit parked on a location it already holds sits inside our list at distance zero, contributing the maximum against us. It threatens nothing; the marker under it is already counted by `markers`.\n\nAnd the locations we hold are excluded from the list by construction, so an enemy walking up to one of them reads as nothing at all. `canControlHere` allows a unit standing on a location to claim it whenever the marker is not already its own — markers flip, and a flip moves the score twice, once for them and once against us. The evaluation cannot see it coming.\n\n`approach` measures each side against the locations that side does not control. Same sweep, same cost, different question. It is a replacement and not an addition: the two measure the same thing and one of them measures it wrong, so the proposal switches `proximity` off in the same step.\n\nThe weight comes from matching influence rather than from taste. `proximity` carries 0.4 against a signal of 0.0405, so it moves the gap between two root moves by 0.0162; `approach` has a signal of 0.0393, so 0.41 buys the same. Note what the instrument cannot say here: both terms score about 2.5 on separating power and that settles nothing at all, since a hash of the root move scores 8e15 on the same scale. Only the match decides.",
+  "proposals": [
+    {
+      "id": "approach-swap",
+      "note": "Same influence, corrected question.",
+      "set": {
+        "proximity": 0,
+        "approach": 0.41
+      },
+      "draftMode": "draft"
+    },
+    {
+      "id": "approach-060",
+      "note": "Half again as much. If the corrected term is reading something the old one could not, it may be worth more than the weight the old one was tuned to — that tuning was done against a term that spent part of its budget charging us for enemies standing still.",
+      "set": {
+        "proximity": 0,
+        "approach": 0.6
+      },
+      "draftMode": "draft"
+    },
+    {
+      "id": "approach-reverse",
+      "note": "The confirmation, written as a reversal: the corrected term is already the baseline, so proposing it again would resolve to 'nothing to change' and print a REJECT with no games played. This puts the old asymmetric `proximity` back on a fresh block of seeds. A REJECT here says what the ACCEPT said, from the other side.\n\nWorth being precise about what was accepted. Not 'closeness to locations matters' — that was already in and worth +42 Elo when it went in. What was accepted is that the enemy should be measured against the locations *it* needs rather than against ours: an enemy parked on a marker of its own stops being charged against us, and an enemy walking up to a marker of ours stops being invisible.",
+      "set": {
+        "proximity": 0.4,
+        "approach": 0
+      },
+      "draftMode": "draft"
+    }
+  ]
+}

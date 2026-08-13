@@ -2,7 +2,7 @@
   "name": "war-chest-telegram",
   "private": true,
   "version": "0.1.0",
-  "description": "War Chest \u2014 Telegram Mini App",
+  "description": "War Chest — Telegram Mini App",
   "type": "module",
   "workspaces": [
     "packages/shared",
@@ -12,7 +12,7 @@
     "packages/tooling"
   ],
   "scripts": {
-    "build": "npm run build -w @wc/shared && npm run build -w @wc/bots && npm run build -w @wc/server && npm run build -w @wc/client",
+    "build": "npm run guard && npm run build -w @wc/shared && npm run build -w @wc/bots && npm run build -w @wc/server && npm run build -w @wc/client",
     "deploy": "docker compose up -d --build",
     "dev": "npm run dev -w @wc/server & npm run dev -w @wc/client",
     "test": "npm run test -w @wc/shared && npm run test -w @wc/bots && npm run test -w @wc/tooling && npm run test -w @wc/server && npm run test -w @wc/client",
@@ -28,7 +28,8 @@
     "unit-value": "npm run build -w @wc/tooling && npm run unit-value -w @wc/tooling --",
     "draft-fit": "npm run build -w @wc/tooling && npm run draft-fit -w @wc/tooling --",
     "regress": "npm run build -w @wc/tooling && npm run regress -w @wc/tooling --",
-    "typecheck": "tsc -b packages/shared packages/server packages/client packages/bots packages/tooling"
+    "typecheck": "npm run guard && tsc -b packages/shared packages/server packages/client packages/bots packages/tooling",
+    "guard": "node scripts/no-lab-running.mjs"
   },
   "devDependencies": {
     "typescript": "^5.7.3"

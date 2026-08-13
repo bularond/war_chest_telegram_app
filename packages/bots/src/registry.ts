@@ -47,6 +47,18 @@ export const BOTS: Readonly<Record<string, Bot>> = {
  * Bump it whenever a bot's behaviour changes; stage 8 replaces it with the
  * version of the evaluation weights file.
  *
+ * `@9` measures each side's closeness to the locations *that side* still needs.
+ * `proximity` subtracted the enemy's closeness to **our** list of targets, and
+ * that list was "locations we do not control" — so an enemy parked on a marker
+ * of its own was charged against us at the maximum, and an enemy walking up to a
+ * marker of ours was invisible, our own locations being excluded from the list
+ * by construction. Markers flip, and a flip moves the score twice. 424 games,
+ * 56.4%, about +45 Elo; the reversal scored 20.0% over 30 games.
+ *
+ * It came from reading `canControlHere` in the engine. No instrument could have
+ * found it — separating power rates the two definitions 2.4 against 2.6, which
+ * is to say identical.
+ *
  * `@8` drafts by a table re-counted at 3600 games instead of 660. Not a new
  * idea and not an experiment — one estimate of the same quantity replacing a
  * worse one, ±3.0 points against ±7. The ends of the table held (rank
@@ -96,7 +108,7 @@ export const BOTS: Readonly<Record<string, Bot>> = {
  * test. But the levels are budgeted in milliseconds, so a search 2,5–3× faster
  * is a different opponent across the table, and the log has to say which one.
  */
-export const BOT_BUILD = 'search@8';
+export const BOT_BUILD = 'search@9';
 
 export function botNamed(name: string): Bot | undefined {
   return BOTS[name];
