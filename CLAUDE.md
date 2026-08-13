@@ -12,7 +12,7 @@ David Thompson, AEG). Монорепозиторий npm workspaces, TypeScript,
 ```bash
 npm install
 npm run typecheck                # tsc -b по всем пяти пакетам
-npm test                         # 118 движок + 67 боты + 71 арена + 9 сервер + 17 клиент
+npm test                         # 127 движок + 110 боты + 84 арена + 23 сервер + 27 клиент
 npm run build                    # shared → bots → server → client
 npm run deploy                   # docker compose up -d --build: один контейнер, том под базу
 npm run dev -w @wc/server        # :8787, node --watch
@@ -80,7 +80,7 @@ nohup caffeinate -i -w $(pgrep -f lab-cli.js | head -1) > /dev/null 2>&1 &
 | `setup.ts` | `createGame`, режимы раздачи, баны, начало раунда, добор монет. |
 | `engine.ts` | Сердце: `legalActions`, `applyAction`, `actingSeat`. ~1600 строк. |
 | `opponents.ts` | Уровни бота: `BotLevel`, `BOT_READY`, имена, `botUserId`. |
-| `state.ts` | Для поиска: `cloneState`, чистый `apply`, `simulate` (без перепроверки хода), `legalMoves`, `isTerminal`, `serializeState`, `hashState`. |
+| `state.ts` | Для поиска: `cloneState`, чистый `apply`, `simulate` (без перепроверки хода), `legalMoves`, `isTerminal`, `serializeState`, `hashState`. Плюс `moveKey` и `distinctMoves`: имя *хода*, а не действия — монета названа отрядом, а не номером слота в руке. |
 | `invariants.ts` | `checkInvariants` — что в законной позиции обязано сходиться: монеты, маркеры, укрепления, печати. |
 | `playout.ts` | Харнесс случайных партий для фаззера и арены. Не бот и не уровень сложности. |
 | `observe.ts` | Для бота: `publicStateFor`, `hiddenCoins` (состав чужого мешка выводится точно), `sampleDeterminization`. |
@@ -239,6 +239,15 @@ nohup caffeinate -i -w $(pgrep -f lab-cli.js | head -1) > /dev/null 2>&1 &
   Если слать состояние всем, у кого есть место, `game.view` прилетит следом за
   ответом «стола у вас нет» и вернёт человека на экран партии — выход начнёт
   требовать двух нажатий. Ловится тестом в `rooms.test.ts`.
+- **Скрытое прячется не только в руках, но и в шагах.** Шаг Воина-жреца несёт
+  добранную монету, и `viewFor` вырезает её имя для всех, кроме владельца. Но
+  детерминизация — это *состояние*, а в состоянии пропусков нет: движок доходит
+  до шага в уверенности, что тот называет монету. Ловится только когда «чей ход»
+  и «кто отвечает» расходятся — защищающийся выбирает, куда принять удар, — и
+  поэтому пережило фаззер на 4000 партий, смоук и весь набор тестов. Нашлось за
+  восемь минут в лаборатории. `sampleDeterminization` теперь досочиняет монету
+  из руки того же игрока, как досочиняет саму руку.
+
 - **`simulate` не проверяет ход, `apply` проверяет.** Сервер обязан звать
   `applyAction`/`apply` с проверкой: это единственное, что стоит между
   подделанным сообщением по WebSocket и состоянием партии. `simulate` — только

@@ -1,16 +1,16 @@
 {
-  "at": "2026-08-13T07:09:48.123Z",
-  "pid": 99880,
-  "experiment": "draws-off",
-  "note": "The rollout policy's own draw, put back over hand slots. Separate from the tree because it is a separate mechanism with the same cause: 16,3% of the drawers the heuristic keeps hold a move that two identical coins can pay for, and inside those the doubled move came up twice as often as its neighbours. Smaller in principle than the tree fragmentation, and it may well measure as nothing — a null here is a real answer and not a failed experiment.",
-  "games": 48,
-  "score": 0.5416666666666666,
-  "llr": 0.2444046850843313,
+  "at": "2026-08-13T07:13:22.323Z",
+  "pid": 3546,
+  "experiment": "keys-off",
+  "note": "Back to naming an edge by the hand slot. The primary question of the night: everything about this one says it should help, and everything about the five attempts at first-play urgency said the same, which is why it is being asked rather than assumed.",
+  "games": 50,
+  "score": 0.46,
+  "llr": -0.5371664287374521,
   "bounds": [
     -2.9444389791664403,
     2.9444389791664403
   ],
-  "seconds": 93,
-  "gamesPerMinute": 30.8,
-  "done": 1
+  "seconds": 95,
+  "gamesPerMinute": 31.5,
+  "done": 0
 }
