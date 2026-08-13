@@ -99,6 +99,22 @@ export const TEAM_OUTER_STARTING_LOCATION: { readonly a: HexId; readonly b: HexI
   b: '9,3',
 };
 
+/**
+ * A number for every hex on the printed board, the big one included.
+ *
+ * One index over `FULL_BOARD_HEXES` rather than one per board size, so a number
+ * means the same hex whichever game is being played. Search uses it to name a
+ * move without building a string; `board-sense.ts` keeps its own index because
+ * it wants the hexes of *this* board packed from zero, which is a different
+ * question.
+ */
+export const HEX_INDEX: ReadonlyMap<HexId, number> = new Map(
+  FULL_BOARD_HEXES.map((id, i) => [id, i]),
+);
+
+/** One past the last hex index: the value that means "no hex here". */
+export const HEX_SLOTS = FULL_BOARD_HEXES.length + 1;
+
 export interface BoardDefinition {
   readonly hexes: readonly HexId[];
   readonly locations: readonly HexId[];

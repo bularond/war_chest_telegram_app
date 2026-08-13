@@ -18,10 +18,11 @@ import {
   hashState,
   isTerminal,
   legalMoves,
+  moveKey,
   serializeState,
 } from './state.js';
-import type { GameAction, GameState } from './types.js';
-import type { UnitSet } from './units.js';
+import { isCoinAction, type GameAction, type GameState, type PendingStep } from './types.js';
+import type { CoinId, UnitSet } from './units.js';
 
 function newGame(seed: number, sets: readonly UnitSet[] = []): GameState {
   return createGame({
@@ -252,5 +253,100 @@ describe('pure state handling', () => {
       if (/Math\.random|Date\.now|new Date\(/.test(text)) offenders.push(file);
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+/**
+ * The move key is an integer now, and the only thing that makes that safe is
+ * that it partitions a legal list exactly as the string it replaced did.
+ *
+ * A collision would not fail anywhere. It would quietly merge two different
+ * moves into one edge of the search tree and average their statistics together
+ * — which is the precise bug the key exists to remove, arriving through the
+ * door marked "optimisation". So the old implementation lives on here as the
+ * reference, and the two are held to the same partition over real positions.
+ */
+describe('the move key as a number', () => {
+  /** What `moveKey` was before it was packed: canonical JSON of the move. */
+  function reference(
+    action: GameAction,
+    hand?: readonly CoinId[],
+    pending?: readonly PendingStep[],
+  ): string {
+    if (action.type === 'skip') {
+      const step = pending?.[pending.length - 1];
+      return step ? `skip:${step.kind}` : 'skip';
+    }
+    if (!isCoinAction(action) || !hand) return actionKey(action);
+    const coin = hand[action.coin];
+    if (coin === undefined) return actionKey(action);
+    return actionKey({ ...action, coin } as unknown as GameAction);
+  }
+
+  it('splits and merges the same moves the string did, over real games', () => {
+    let positions = 0;
+    let merged = 0;
+    for (let seed = 0; seed < 40; seed++) {
+      const state = createGame({
+        id: `key-${seed}`,
+        size: 2,
+        seed,
+        sets: ['nobility', 'siege', 'nightfall'],
+        draftMode: 'random',
+        seats: [
+          { userId: 'a', displayName: 'A' },
+          { userId: 'b', displayName: 'B' },
+        ],
+      });
+      const rng = createRng(seed + 1);
+      for (let ply = 0; ply < 120 && !isTerminal(state); ply++) {
+        const seat = actingSeat(state);
+        const legal = legalMoves(state);
+        if (legal.length === 0) break;
+        const hand = state.players[seat]!.hand;
+
+        // Both keys, as a partition: which entries of the list share a name.
+        const group = (name: (a: GameAction) => string | number) => {
+          const cells = new Map<string | number, number[]>();
+          legal.forEach((a, i) => {
+            const k = name(a);
+            cells.set(k, [...(cells.get(k) ?? []), i]);
+          });
+          return [...cells.values()].map((v) => v.join(',')).sort().join('|');
+        };
+        expect(group((a) => moveKey(a, hand, state.pending))).toBe(
+          group((a) => reference(a, hand, state.pending)),
+        );
+        positions++;
+        if (new Set(legal.map((a) => moveKey(a, hand, state.pending))).size < legal.length) merged++;
+
+        applyAction(state, seat, legal[nextInt(rng, legal.length)] as GameAction);
+      }
+    }
+    // The check is worthless if nothing ever merged: it would be comparing two
+    // ways of saying "every entry is its own move".
+    expect(positions).toBeGreaterThan(1000);
+    expect(merged / positions).toBeGreaterThan(0.1);
+  });
+
+  it('is a safe integer, so no key can lose its top bits', () => {
+    const state = createGame({
+      id: 'key-range',
+      size: 4,
+      seed: 2,
+      sets: ['nobility', 'siege', 'nightfall'],
+      draftMode: 'random',
+      seats: [
+        { userId: 'a', displayName: 'A' },
+        { userId: 'b', displayName: 'B' },
+        { userId: 'c', displayName: 'C' },
+        { userId: 'd', displayName: 'D' },
+      ],
+    });
+    for (const action of legalMoves(state)) {
+      const k = moveKey(action, state.players[0]!.hand, state.pending);
+      expect(Number.isSafeInteger(k)).toBe(true);
+      expect(k).toBeGreaterThanOrEqual(0);
+    }
   });
 });

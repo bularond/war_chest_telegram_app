@@ -194,7 +194,12 @@ interface Edge {
  * is read from the state in `iterate`.
  */
 interface Node {
-  readonly edges: Map<string, Edge>;
+  /**
+   * Keyed by `moveKey`, which is a number — or by `actionKey`, a string, on the
+   * fallback path. One map holds either; what mattered was not building the
+   * string, which was 14.8% of a real search.
+   */
+  readonly edges: Map<string | number, Edge>;
   visits: number;
 }
 
@@ -294,7 +299,7 @@ function keyer(
   state: GameState,
   acting: Seat,
   config: SearchSettings,
-): (action: GameAction) => string {
+): (action: GameAction) => string | number {
   if (!config.unitKeys) return actionKey;
   const hand = state.players[acting]?.hand;
   const pending = state.pending;
@@ -344,7 +349,7 @@ function iterate(root: Node, view: GameView, rng: RngState, config: SearchSettin
     const fresh: GameAction[] = [];
     // Two coins of one unit make one move offered twice; the second copy has
     // nothing to add to either list.
-    const seen = new Set<string>();
+    const seen = new Set<string | number>();
     for (const action of legal) {
       const name = key(action);
       if (seen.has(name)) continue;

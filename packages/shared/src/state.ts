@@ -11,8 +11,10 @@
 import { actingSeat, applyAction, legalActions } from './engine.js';
 import type { DecreeInPlay } from './decrees.js';
 import type { HexId } from './hex.js';
+import { HEX_INDEX, HEX_SLOTS } from './board.js';
+import { DECREE_IDS, type DecreeId } from './decrees.js';
 import { isCoinAction, type GameAction, type GameState, type PendingStep, type PlayerState, type Seat, type UnitStack } from './types.js';
-import type { CoinId } from './units.js';
+import { DECOYS, ROYAL_COIN, UNIT_IDS, type CoinId, type UnitId } from './units.js';
 
 // ---------------------------------------------------------------------------
 // Copying
@@ -189,7 +191,7 @@ export function actionKey(action: GameAction): string {
 }
 
 /**
- * A name for the *move*, where `actionKey` names the action.
+ * A name for the *move*, where `actionKey` names the action — as a number.
  *
  * The two differ in exactly two places, and both cost the search real work.
  *
@@ -198,7 +200,7 @@ export function actionKey(action: GameAction): string {
  * copies different names. In the tree that splits one move's statistics across
  * two edges — worse in the opponent's part of it, where the hand is re-dealt
  * every iteration and the slot a Knight lands in is random, so the same reply
- * gets a fresh name each time. Measured: 2,1 duplicate edges per distinct move,
+ * gets a fresh name each time. Measured: 2.1 duplicate edges per distinct move,
  * and merging them changes the move chosen in 41% of the root positions where
  * duplicates appear. In a uniform draw it is worse than fragmentation, it is
  * bias: the move payable two ways is drawn twice as often as the one payable
@@ -208,26 +210,103 @@ export function actionKey(action: GameAction): string {
  * defender and "stay where I am" as the attacker, and one name gave them one
  * edge and one pool of statistics. The step being answered tells them apart.
  *
+ * **And it is a number rather than a string, which is the whole cost of this
+ * function.** Naming an edge by canonical JSON meant enumerating an object's
+ * keys, sorting them, testing each string against a regex and concatenating —
+ * per legal move, per iteration. A profile of a real search put 14.8% of the
+ * time in exactly that, more than the evaluation and the tree put together. The
+ * fields are all small enumerations, so they pack into one integer: nine slots,
+ * fifty bits, built by multiply-and-add because JS bitwise operators stop at
+ * thirty-two.
+ *
  * `hand` is the acting player's, and it is optional because a redacted view may
- * not carry it: without it the slot is the best name available, which is what
- * this was before.
+ * not carry it: without it the slot number is the best name available, and it
+ * goes in a range of its own so it can never be mistaken for a coin.
  */
 export function moveKey(
   action: GameAction,
   hand?: readonly CoinId[],
   pending?: readonly PendingStep[],
-): string {
-  if (action.type === 'skip') {
-    const step = pending?.[pending.length - 1];
-    return step ? `{"type":"skip","step":"${step.kind}"}` : '{"type":"skip"}';
+): number {
+  const a = action as Record<string, unknown>;
+  let coin = 0;
+  if (isCoinAction(action)) {
+    const held = hand?.[action.coin];
+    // A named coin, or — failing that — the slot, above every coin name so the
+    // two can never collide.
+    coin = held === undefined ? COIN_SLOTS + Math.min(action.coin, HAND_SLOTS - 1) : (COIN_INDEX.get(held) ?? 0) + 1;
   }
-  if (!isCoinAction(action) || !hand) return canonical(action);
-  const coin = hand[action.coin];
-  if (coin === undefined) return canonical(action);
-  // `coin` goes from a slot number to the name of what is in it. Everything
-  // else about the action is untouched, so two moves differing anywhere else
-  // still get two names.
-  return canonical({ ...action, coin } as unknown as GameAction);
+
+  let misc = 0;
+  if (action.type === 'skip') misc = STEP_INDEX.get(pending?.[pending.length - 1]?.kind ?? '') ?? 0;
+  else if (action.type === 'followSpy') misc = Math.min(action.index + 1, MISC_SLOTS - 1);
+  else if (action.type === 'followDeceive') misc = action.seat + 1;
+  else if (action.type === 'followAbsorb') misc = ABSORB_INDEX[action.source] ?? 0;
+
+  let key = TYPE_INDEX.get(action.type) ?? 0;
+  key = key * (COIN_SLOTS + HAND_SLOTS) + coin;
+  // `at` and `hex` are the single-hex fields and never share an action with
+  // `from`, so they share its slot.
+  key = key * HEX_SLOTS + hexSlot((a.from ?? a.at ?? a.hex) as HexId | undefined);
+  key = key * HEX_SLOTS + hexSlot(a.to as HexId | undefined);
+  key = key * HEX_SLOTS + hexSlot(a.target as HexId | undefined);
+  key = key * HEX_SLOTS + hexSlot(a.subject as HexId | undefined);
+  key = key * (UNIT_IDS.length + 1) + (typeof a.unit === 'string' ? (UNIT_INDEX.get(a.unit as UnitId) ?? 0) + 1 : 0);
+  key = key * (DECREE_IDS.length + 1) + (typeof a.decree === 'string' ? (DECREE_INDEX.get(a.decree as DecreeId) ?? 0) + 1 : 0);
+  return key * MISC_SLOTS + misc;
+}
+
+function hexSlot(hex: HexId | undefined): number {
+  return hex === undefined ? 0 : (HEX_INDEX.get(hex) ?? -1) + 1;
+}
+
+/**
+ * The alphabets the key is written in. Every one of them is a fixed list the
+ * rules define, so the widths are constants and the product is checked once,
+ * below, rather than hoped for.
+ */
+const ACTION_TYPES = [
+  'deploy', 'bolster', 'claimInitiative', 'recruit', 'pass', 'unpoison', 'returnDecoy',
+  'move', 'control', 'attack', 'proclaim', 'tactic',
+  'followMove', 'followAttack', 'followControl', 'followRepeat', 'followRecruit',
+  'followLift', 'followPlace', 'followSpy', 'followReinforce', 'followBolster',
+  'followShove', 'followProclaim', 'followBuildFort', 'followAbsorb', 'followBurn',
+  'followDeceive', 'followTactic', 'skip', 'draft', 'ban',
+] as const;
+
+const STEP_KINDS = [
+  'optionalMove', 'optionalRepeat', 'mustUseCoin', 'maneuverUnit', 'grantManeuver',
+  'decreeAttack', 'decreeMove', 'decreeRecruit', 'decreeLift', 'decreePlace',
+  'decreeSpy', 'decreeReinforce', 'heraldBolster', 'shoveEnemy', 'maneuverUnitLimited',
+  'freeTactic', 'proclaim', 'burnSupply', 'deceive', 'bolsterSelf', 'buildFort', 'absorbHit',
+] as const;
+
+const TYPE_INDEX = new Map<string, number>(ACTION_TYPES.map((t, i) => [t, i]));
+const STEP_INDEX = new Map<string, number>(STEP_KINDS.map((k, i) => [k, i + 1]));
+const UNIT_INDEX = new Map<UnitId, number>(UNIT_IDS.map((u, i) => [u, i]));
+const DECREE_INDEX = new Map<DecreeId, number>(DECREE_IDS.map((d, i) => [d, i]));
+const ALL_COINS: readonly CoinId[] = [...UNIT_IDS, ROYAL_COIN, ...DECOYS];
+const COIN_INDEX = new Map<CoinId, number>(ALL_COINS.map((c, i) => [c, i]));
+/** Room for every coin name plus «none», then a block for bare slot numbers. */
+const COIN_SLOTS = ALL_COINS.length + 1;
+const HAND_SLOTS = 16;
+/** Whichever small number an action type needs: a step kind, a seat, a source. */
+const MISC_SLOTS = Math.max(STEP_KINDS.length + 1, 16);
+const ABSORB_INDEX: Record<string, number> = { supply: 1, wagon: 2, decoy: 3 };
+
+// Fifty bits, and the assertion is here rather than in a test because a key that
+// silently loses its top bits would not fail — it would quietly merge two
+// different moves into one edge, which is the exact bug this function exists to
+// remove.
+{
+  const span =
+    ACTION_TYPES.length *
+    (COIN_SLOTS + HAND_SLOTS) *
+    HEX_SLOTS ** 4 *
+    (UNIT_IDS.length + 1) *
+    (DECREE_IDS.length + 1) *
+    MISC_SLOTS;
+  if (span > Number.MAX_SAFE_INTEGER) throw new Error(`moveKey needs ${span} values, more than a double holds`);
 }
 
 /**
@@ -244,7 +323,7 @@ export function distinctMoves(
   hand?: readonly CoinId[],
   pending?: readonly PendingStep[],
 ): GameAction[] {
-  const seen = new Set<string>();
+  const seen = new Set<number>();
   const out: GameAction[] = [];
   for (const action of actions) {
     const key = moveKey(action, hand, pending);
