@@ -15,7 +15,8 @@
     "@fastify/websocket": "^11.0.2",
     "@wc/bots": "*",
     "@wc/shared": "*",
-    "fastify": "^5.2.1"
+    "fastify": "^5.2.1",
+    "@wc/core-native": "*"
   },
   "devDependencies": {
     "@types/node": "^22.13.1",

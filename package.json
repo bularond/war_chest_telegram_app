@@ -2,9 +2,10 @@
   "name": "war-chest-telegram",
   "private": true,
   "version": "0.1.0",
-  "description": "War Chest — Telegram Mini App",
+  "description": "War Chest \u2014 Telegram Mini App",
   "type": "module",
   "workspaces": [
+    "packages/core-native",
     "packages/shared",
     "packages/server",
     "packages/client",

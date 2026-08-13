@@ -1,0 +1,12 @@
+[package]
+name = "wc-conformance"
+version = "0.1.0"
+edition.workspace = true
+
+[[bin]]
+name = "wc-conformance"
+path = "src/main.rs"
+
+[dependencies]
+wc-core = { path = "../wc-core" }
+serde_json = "1"
