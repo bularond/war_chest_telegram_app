@@ -15,13 +15,22 @@ import {
   legalMoves,
   moveKey,
   publicStateFor,
+  type GameAction,
   type GameState,
   type HexId,
   type UnitId,
 } from '@wc/shared';
 import { describe, expect, it } from 'vitest';
 import { BASE_WEIGHTS, evaluate, type EvalWeights } from './eval.js';
-import { createSearchBot, runSearch, DEFAULT_SEARCH, SearchBot } from './ismcts.js';
+import {
+  bestOf,
+  createSearchBot,
+  mergeReports,
+  runSearch,
+  DEFAULT_SEARCH,
+  SearchBot,
+  type RootStat,
+} from './ismcts.js';
 import { HeuristicBot } from './heuristic.js';
 import { BOTS } from './registry.js';
 
@@ -665,5 +674,78 @@ describe('edges named by unit', () => {
       const seat = actingSeat(state);
       applyAction(state, seat, bot.chooseMove(publicStateFor(state, seat), { rng, budget: {} }));
     }
+  });
+});
+
+/**
+ * Several searches of one position, read as one.
+ *
+ * This is all root parallelism is: no shared tree, no locks, no shared memory —
+ * every worker searches the same position from a different seed and the visit
+ * counts are added up. The whole of it that can go wrong lives in this function,
+ * so the whole of it is tested here rather than through a thread.
+ */
+describe('merging searches of the same position', () => {
+  const stat = (key: number, visits: number, value: number): RootStat => ({
+    action: { type: 'pass', coin: key } as GameAction,
+    key,
+    visits,
+    value,
+  });
+
+  it('adds up the visits a move got in each search', () => {
+    const merged = mergeReports([
+      [stat(1, 30, 6), stat(2, 70, 7)],
+      [stat(1, 80, 24), stat(2, 20, 2)],
+    ]);
+    const byKey = new Map(merged.map((r) => [r.key, r]));
+    expect(byKey.get(1)?.visits).toBe(110);
+    expect(byKey.get(2)?.visits).toBe(90);
+  });
+
+  it('can settle on a move that neither search picked on its own', () => {
+    // Each search preferred its own favourite; together they agree on the third.
+    const merged = mergeReports([
+      [stat(1, 50, 5), stat(3, 40, 8)],
+      [stat(2, 50, 5), stat(3, 40, 8)],
+    ]);
+    expect(bestOf(merged).key).toBe(3);
+    expect(merged.find((r) => r.key === 3)?.visits).toBe(80);
+  });
+
+  it('keeps the sums, so the average is over every visit anywhere', () => {
+    const merged = mergeReports([[stat(1, 10, 5)], [stat(1, 30, 3)]]);
+    const only = bestOf(merged);
+    expect(only.visits).toBe(40);
+    expect(only.value / only.visits).toBeCloseTo(8 / 40, 10);
+  });
+
+  it('carries on with the searches that answered', () => {
+    // A worker that missed its deadline is dropped. Losing one of six is a
+    // slightly smaller search; losing the only one is a lost move.
+    expect(bestOf(mergeReports([[stat(1, 40, 4)], []])).visits).toBe(40);
+    expect(() => mergeReports([[]])).toThrow(/nothing to merge/);
+  });
+
+  it('reports every root move a real search looked at', () => {
+    const state = game(5);
+    const view = publicStateFor(state, actingSeat(state));
+    const r = runSearch(view, { rng: createRng(3), budget: { iterations: 300 } });
+    expect(r.roots.length).toBeGreaterThan(1);
+    expect(r.roots.reduce((n, x) => n + x.visits, 0)).toBeLessThanOrEqual(300);
+    // Every key is distinct — that is what makes adding them up meaningful.
+    expect(new Set(r.roots.map((x) => x.key)).size).toBe(r.roots.length);
+    // And two searches of the same position agree on what a move is called.
+    const other = runSearch(view, { rng: createRng(9), budget: { iterations: 120 } });
+    expect(other.roots.every((x) => r.roots.some((y) => y.key === x.key))).toBe(true);
+  });
+
+  it('is the same move a single search of that size would have reported', () => {
+    // Not an identity — two searches are not one bigger search — but the rule
+    // that picks the move has to be the same rule.
+    const state = game(5);
+    const view = publicStateFor(state, actingSeat(state));
+    const one = runSearch(view, { rng: createRng(3), budget: { iterations: 300 } });
+    expect(bestOf(mergeReports([one.roots])).action).toEqual(one.action);
   });
 });

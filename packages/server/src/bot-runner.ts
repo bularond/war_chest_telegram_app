@@ -22,6 +22,7 @@ import {
   type Seat,
 } from '@wc/shared';
 import { BotPool, type BotPoolOptions } from './bot-pool.js';
+import { cpus } from 'node:os';
 
 export interface BotRunnerOptions extends BotPoolOptions {
   /**
@@ -33,8 +34,17 @@ export interface BotRunnerOptions extends BotPoolOptions {
   readonly thinkMs: number;
 }
 
+/**
+ * Two workers was the cap while a search used one core and the point of the pool
+ * was only to keep the event loop free. With root parallelism a move can use
+ * every worker that happens to be idle, so the cap now says how much of the
+ * machine the bots may have between them — and it is the machine minus two,
+ * which is the same rule the arena uses and for the same reason: something has
+ * to serve everybody else.
+ */
 export const DEFAULT_BOT_RUNNER: BotRunnerOptions = {
-  limit: 2,
+  limit: Math.max(2, cpus().length - 2),
+  threads: Math.max(1, cpus().length - 2),
   thinkMs: 600,
   deadlineMs: 5000,
 };

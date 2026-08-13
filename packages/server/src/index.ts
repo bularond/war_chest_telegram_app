@@ -48,6 +48,9 @@ const botRunner = new BotRunner(
     // else's Hard bot is thinking. Raise it only with cores to spare.
     ...(process.env.BOT_WORKERS ? { limit: Number(process.env.BOT_WORKERS) } : {}),
     ...(process.env.BOT_DEADLINE_MS ? { deadlineMs: Number(process.env.BOT_DEADLINE_MS) } : {}),
+    // How many workers one move may spread across. Opportunistic: it takes what
+    // is idle and never fewer than one, so this is a ceiling and not a demand.
+    ...(process.env.BOT_THREADS ? { threads: Number(process.env.BOT_THREADS) } : {}),
   },
   (code) => pushLobby(rooms.get(code)),
   (code, err) => app.log.warn({ err, code }, 'bot turn fell back to the heuristic'),

@@ -227,12 +227,77 @@ export function createSearchBot(
 
 export const SearchBot: Bot = createSearchBot();
 
+/** What one root move was worth, and how much of the budget went into it. */
+export interface RootStat {
+  readonly action: GameAction;
+  /** `moveKey`, so two searches of the same position agree on what to add up. */
+  readonly key: string | number;
+  readonly visits: number;
+  /** Summed score, not averaged: sums are what merge across searches. */
+  readonly value: number;
+}
+
 export interface SearchReport {
   readonly action: GameAction;
   readonly iterations: number;
   readonly visits: number;
   /** Score of the chosen move, in [-1, 1], from the searching seat's side. */
   readonly value: number;
+  /**
+   * Every root move the search looked at.
+   *
+   * Reported because a search that used one core is a search that used one
+   * twelfth of the machine. Root parallelism — several independent searches of
+   * the same position, their visit counts added up — needs exactly this and
+   * nothing else: no shared tree, no locks, no shared memory. It is the weakest
+   * of the parallel schemes and the only one that crosses a worker boundary
+   * without a rewrite.
+   */
+  readonly roots: readonly RootStat[];
+}
+
+/**
+ * Several searches of one position, read as one.
+ *
+ * Visits and summed values add. The move chosen is the most visited overall,
+ * which is the same rule one search uses and for the same reason: a high average
+ * over two visits is noise.
+ *
+ * Independent searches are worth less than one search of the same total size —
+ * each rediscovers what the others already know, and none of them can steer by
+ * what the others found. Reported in the literature at around half to two
+ * thirds of the ideal for this many threads. Half of twelve cores is still six
+ * times the search, and the ladder says four times the thinking bought 70 Elo.
+ *
+ * A caller may hand in fewer searches than it asked for: one that missed its
+ * deadline is dropped and the rest still answer, which is better than the move
+ * failing. It takes the root lists and nothing else, because that is all it
+ * reads — a wrapper carrying an `action` and a `visits` beside them would be two
+ * fields that mean nothing here and look as though they did.
+ */
+export function mergeReports(searches: readonly (readonly RootStat[])[]): RootStat[] {
+  const total = new Map<string | number, { action: GameAction; visits: number; value: number }>();
+  for (const roots of searches) {
+    for (const root of roots) {
+      const seen = total.get(root.key);
+      if (seen) {
+        seen.visits += root.visits;
+        seen.value += root.value;
+      } else {
+        total.set(root.key, { action: root.action, visits: root.visits, value: root.value });
+      }
+    }
+  }
+  if (total.size === 0) throw new Error('nothing to merge: no search returned a root move');
+  return [...total.entries()].map(([key, r]) => ({ key, ...r }));
+}
+
+/** The move a merged search settles on: the most visited, as one search does. */
+export function bestOf(roots: readonly RootStat[]): RootStat {
+  let best = roots[0];
+  if (!best) throw new Error('no root move to choose from');
+  for (const root of roots) if (root.visits > best.visits) best = root;
+  return best;
 }
 
 /** The search proper. Exposed for the arena and for tests that want the counts. */
@@ -256,7 +321,9 @@ export function runSearch(
   // The most visited move, not the highest scoring one: a high average over two
   // visits is noise, and the visit count is what the search actually trusted.
   let best: Edge | null = null;
-  for (const edge of root.edges.values()) {
+  const roots: RootStat[] = [];
+  for (const [key, edge] of root.edges) {
+    roots.push({ action: edge.action, key, visits: edge.visits, value: edge.value });
     if (!best || edge.visits > best.visits) best = edge;
   }
   if (!best) throw new Error('search found no move');
@@ -265,6 +332,7 @@ export function runSearch(
     iterations,
     visits: best.visits,
     value: best.visits === 0 ? 0 : best.value / best.visits,
+    roots,
   };
 }
 

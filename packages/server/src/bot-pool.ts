@@ -12,19 +12,35 @@
  */
 
 import { Worker } from 'node:worker_threads';
+import { bestOf, mergeReports, type RootStat } from '@wc/bots';
 import type { BotLevel, GameAction, GameView } from '@wc/shared';
-import type { BotRequest, BotResponse } from './bot-worker.js';
+import { LEVEL_PLAN, type BotRequest, type BotResponse } from './bot-worker.js';
 
 export interface BotPoolOptions {
   /** Searches running at once. The rest queue. */
   readonly limit: number;
   /** A move that takes longer than this is abandoned and the worker replaced. */
   readonly deadlineMs: number;
+  /**
+   * How many workers one move may use at once.
+   *
+   * A search used one core and left the other eleven idle. Root parallelism
+   * fixes that without a shared tree: several workers search the same position
+   * from different seeds and their visit counts are added up.
+   *
+   * It is deliberately *opportunistic* — a move takes as many workers as happen
+   * to be free and never fewer than one. A quiet server puts the whole machine
+   * behind one move; a busy one degrades to what it did before, which is the
+   * right way round. Fanning out to a fixed number would put sub-jobs in the
+   * queue behind each other, and a move whose halves run in sequence takes twice
+   * as long rather than thinking twice as hard.
+   */
+  readonly threads?: number;
 }
 
 interface Job {
   readonly request: BotRequest;
-  readonly resolve: (action: GameAction) => void;
+  readonly resolve: (response: { action: GameAction; roots?: readonly RootStat[] }) => void;
   readonly reject: (err: Error) => void;
 }
 
@@ -57,10 +73,55 @@ export class BotPool {
     private readonly onError: (err: unknown) => void = () => {},
   ) {}
 
-  /** Asks for a move. Rejects on timeout, on a worker crash, or after `stop`. */
-  choose(level: BotLevel, view: GameView, seed: number, budgetMs = 0): Promise<GameAction> {
+  /**
+   * Asks for a move. Rejects on timeout, on a worker crash, or after `stop`.
+   *
+   * One call may become several searches of the same position — see `threads`.
+   * They are merged by visit count, and a search that missed its deadline is
+   * simply left out: losing one of six is a slightly smaller search, where
+   * losing the only one is a lost move.
+   */
+  async choose(level: BotLevel, view: GameView, seed: number, budgetMs = 0): Promise<GameAction> {
     if (this.stopped) return Promise.reject(new Error('bot pool is stopped'));
-    return new Promise<GameAction>((resolve, reject) => {
+    // Whether to fan out is decided by the level, not by what comes back. Asking
+    // and *then* deciding would mean awaiting the first search before starting
+    // the others — two searches in sequence, which is twice the wait and none of
+    // the benefit. Only a searching level has statistics to add up.
+    const want =
+      LEVEL_PLAN[level]?.bot === 'ismcts'
+        ? Math.max(1, Math.min(this.opts.threads ?? 1, this.free()))
+        : 1;
+    if (want <= 1) return (await this.one(level, view, seed, budgetMs)).action;
+
+    // Seeds a prime apart, so no two workers walk the same determinizations.
+    const answers = await Promise.allSettled(
+      Array.from({ length: want }, (_, i) => this.one(level, view, seed + i * 7919, budgetMs)),
+    );
+    const searched: RootStat[][] = [];
+    for (const a of answers) if (a.status === 'fulfilled' && a.value.roots) searched.push([...a.value.roots]);
+    if (searched.length > 0) return bestOf(mergeReports(searched)).action;
+
+    // Nothing came back with a tree. A move without statistics is still a move;
+    // failing outright is the last resort, and it carries the real reason.
+    const plain = answers.find((a) => a.status === 'fulfilled');
+    if (plain?.status === 'fulfilled') return plain.value.action;
+    const failed = answers.find((a) => a.status === 'rejected');
+    throw failed?.status === 'rejected' ? failed.reason : new Error('no bot answered');
+  }
+
+  /** Workers that could start a search this instant, spawned or not yet. */
+  private free(): number {
+    const idle = this.slots.filter((s) => s.job === null).length;
+    return idle + Math.max(0, this.opts.limit - this.slots.length);
+  }
+
+  private one(
+    level: BotLevel,
+    view: GameView,
+    seed: number,
+    budgetMs: number,
+  ): Promise<{ action: GameAction; roots?: readonly RootStat[] }> {
+    return new Promise((resolve, reject) => {
       this.queue.push({
         request: { id: this.nextId++, level, view, seed, budgetMs },
         resolve,
@@ -68,6 +129,11 @@ export class BotPool {
       });
       this.pump();
     });
+  }
+
+  /** Workers started so far. Only a test has any business reading it. */
+  get spawned(): number {
+    return this.slots.length;
   }
 
   get busy(): number {
@@ -138,7 +204,7 @@ export class BotPool {
     if (!slot || !job || job.request.id !== response.id) return; // a late reply
     this.release(slot);
     if ('error' in response) job.reject(new Error(response.error));
-    else job.resolve(response.action);
+    else job.resolve({ action: response.action, ...(response.roots ? { roots: response.roots } : {}) });
     this.pump();
   }
 

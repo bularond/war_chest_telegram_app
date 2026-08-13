@@ -39,6 +39,49 @@ afterEach(async () => {
   await Promise.all(pools.splice(0).map((p) => p.stop()));
 });
 
+describe('one move across several workers', () => {
+  it('spreads a search over the idle workers and still plays legally', async () => {
+    const pool = new BotPool({ limit: 4, deadlineMs: 30_000, threads: 4 });
+    pools.push(pool);
+    const state = botGame(6);
+    passTurnToBot(state);
+    const seat = actingBotSeat(state) as number;
+    const view = publicStateFor(state, seat);
+
+    const action = await pool.choose('medium', view, 5, 150);
+    expect(view.legal.some((a) => JSON.stringify(a) === JSON.stringify(action))).toBe(true);
+    expect(() => applyAction(state, seat, action)).not.toThrow();
+  });
+
+  it('leaves a level that does not search on one worker', async () => {
+    // Easy is the heuristic: it has no tree, so twelve workers would return the
+    // same move twelve times and occupy the machine to do it.
+    const pool = new BotPool({ limit: 4, deadlineMs: 10_000, threads: 4 });
+    pools.push(pool);
+    const state = botGame();
+    passTurnToBot(state);
+    const seat = actingBotSeat(state) as number;
+
+    await pool.choose('easy', publicStateFor(state, seat), 7);
+    expect(pool.spawned).toBe(1);
+  });
+
+  it('takes what is idle rather than what it was promised', async () => {
+    // Opportunistic on purpose: a busy server must degrade to the old behaviour
+    // instead of queueing a move's halves behind each other, which would be
+    // twice the wait and none of the benefit.
+    const pool = new BotPool({ limit: 2, deadlineMs: 30_000, threads: 8 });
+    pools.push(pool);
+    const state = botGame(6);
+    passTurnToBot(state);
+    const seat = actingBotSeat(state) as number;
+    const view = publicStateFor(state, seat);
+
+    await pool.choose('medium', view, 5, 150);
+    expect(pool.spawned).toBeLessThanOrEqual(2);
+  });
+});
+
 describe('the worker pool', () => {
   it('answers with a legal move', async () => {
     const pool = new BotPool({ limit: 1, deadlineMs: 10_000 });
