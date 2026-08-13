@@ -9,6 +9,7 @@ import {
   actingSeat,
   actionKey,
   applyAction,
+  canAttackTarget,
   createGame,
   createRng,
   publicStateFor,
@@ -157,6 +158,99 @@ describe('the search as a player', () => {
       budget: { iterations: 300 },
     });
     expect(chosen.type).toBe('control');
+  });
+});
+
+/**
+ * Two cards make bolstering a decision rather than a habit, in opposite
+ * directions: the Knight can *only* be attacked by a bolstered unit, and the
+ * Bishop can only be attacked by one that is not. So the same move — putting a
+ * second coin on a stack standing next to an enemy — opens an attack in one case
+ * and throws one away in the other.
+ *
+ * The engine's half of this is checked in `engine.test.ts` and
+ * `nobility.test.ts`. What is checked here is that the player acts on it, which
+ * is a different thing and breaks differently: the rule can be perfect while the
+ * search bolsters anyway because nothing in the evaluation minds.
+ *
+ * Note what the heuristic's half of this proves and does not prove. Against the
+ * Bishop it plays the attack, but not because it knows anything — attacking is
+ * the chart's first drawer and bolstering its ninth, so it would never trade one
+ * for the other whatever the card said. Against the Knight it does know: there
+ * is a hand-written exception for exactly that case.
+ */
+describe('bolstering when bolstering is a choice', () => {
+  /** Mine at 5,2 with one coin, theirs next door, two of my coins in hand. */
+  function facing(theirUnit: UnitId, myUnit: UnitId = 'swordsman'): GameState {
+    const state = createGame({
+      id: 'gate',
+      size: 2,
+      seed: 4,
+      sets: ['nobility'],
+      draftMode: 'random',
+      seats: [
+        { userId: 'a', displayName: 'A' },
+        { userId: 'b', displayName: 'B' },
+      ],
+      fixedUnits: [
+        [myUnit, 'scout', 'footman', 'archer'],
+        [theirUnit, 'cavalry', 'pikeman', 'lancer'],
+      ],
+    });
+    state.units = {};
+    state.turn = 0;
+    // Coins are moved, never conjured — three of mine leave a pile, one onto the
+    // board and two into hand, or the position is one no game can reach and
+    // `sampleDeterminization` refuses to guess at it.
+    //
+    // `takeCoin` above looks in the hand and the bag, which is enough for the
+    // tests that use it. At setup most of a unit's coins are in the *supply*, so
+    // a position wanting three of one unit has to reach in there as well.
+    const fromAnywhere = (seat: 0 | 1, unit: UnitId) => {
+      const p = state.players[seat]!;
+      const inHand = p.hand.indexOf(unit);
+      if (inHand !== -1) return void p.hand.splice(inHand, 1);
+      const inBag = p.bag.indexOf(unit);
+      if (inBag !== -1) return void p.bag.splice(inBag, 1);
+      if ((p.supply[unit] ?? 0) > 0) return void (p.supply[unit] = (p.supply[unit] as number) - 1);
+      throw new Error(`seat ${seat} owns no ${unit} coin anywhere`);
+    };
+    fromAnywhere(0, myUnit);
+    fromAnywhere(1, theirUnit);
+    const me = state.players[0]!;
+    me.bag.push(...me.hand);
+    me.hand = [];
+    for (let i = 0; i < 2; i++) {
+      fromAnywhere(0, myUnit);
+      me.hand.push(myUnit);
+    }
+    state.units['5,2' as HexId] = { unit: myUnit, team: 0, seat: 0, coins: 1 };
+    state.units['5,1' as HexId] = { unit: theirUnit, team: 1, seat: 1, coins: 1 };
+    return state;
+  }
+
+  it('bolsters to open an attack on a Knight', () => {
+    const state = facing('knight');
+    expect(canAttackTarget(state, '5,2' as HexId, '5,1' as HexId)).toBe(false);
+    const view = publicStateFor(state, 0);
+    for (let t = 0; t < 4; t++) {
+      const chosen = SearchBot.chooseMove(view, { rng: createRng(100 + t), budget: { iterations: 400 } });
+      expect(chosen.type).toBe('bolster');
+    }
+  });
+
+  it('does not bolster away an attack on a Bishop', () => {
+    const state = facing('bishop');
+    expect(canAttackTarget(state, '5,2' as HexId, '5,1' as HexId)).toBe(true);
+    // The same stack with a second coin cannot touch it — that is the trap.
+    const heavier = { ...state, units: { ...state.units, ['5,2' as HexId]: { unit: 'swordsman' as UnitId, team: 0 as const, seat: 0 as const, coins: 2 } } };
+    expect(canAttackTarget(heavier as GameState, '5,2' as HexId, '5,1' as HexId)).toBe(false);
+
+    const view = publicStateFor(state, 0);
+    for (let t = 0; t < 4; t++) {
+      const chosen = SearchBot.chooseMove(view, { rng: createRng(100 + t), budget: { iterations: 1200 } });
+      expect(chosen.type).not.toBe('bolster');
+    }
   });
 });
 
