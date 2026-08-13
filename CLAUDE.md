@@ -51,7 +51,24 @@ npm run spsa -- --from weights/base.json --out weights/spsa.json
 npm run regress -- --games 5000 --out weights/fitted.json
 npm run regress -- --target value --games 250 --out weights/fitted-value.json
 npm run ladder -- --budgets 60,250,1000 --games 60
+npm run lab -- --plan weights/night.plan.json --out weights/lab --resume
 ```
+
+Ночной прогон запускается так — `caffeinate` обязателен, иначе ноутбук уснёт по
+бездействию и всё встанет:
+
+```bash
+nohup ./target/release/lab --plan weights/night.plan.json --out weights/lab \
+  --resume --budget-ms 250 --max-games 800 --max-minutes 40 --jobs 13 \
+  >> weights/lab.log 2>&1 &
+nohup caffeinate -i -w $(pgrep -f "release/lab" | head -1) > /dev/null 2>&1 &
+```
+
+`-w <pid>` привязывает удержание ко времени жизни самой лаборатории: голый
+`caffeinate -i` за ночь терялся, и машину держали от сна чужие ассерции, на
+которые рассчитывать нельзя. Проверять — `pmset -g | grep '^ sleep'`, там должно
+быть «prevented by caffeinate». Смотреть за ходом — `node scripts/lab-watch.mjs`,
+итог — `node scripts/lab-report.mjs`.
 
 Одиночный тест: `cargo test -p wc-core --test fuzz`, `npx vitest run -t "часть"`.
 
@@ -168,6 +185,13 @@ npm run ladder -- --budgets 60,250,1000 --games 60
 - **Повтор принятого эксперимента надо писать наоборот.** Предложение с той же
   настройкой после принятия ничего не меняет — проверять надо возвратом:
   выключить принятое и убедиться, что стало хуже.
+- **Умолчания поиска — часть базы лаборатории.** `Knobs::defaults()` заполняет
+  ручки, которых нет в файле весов, и именно это делает «нечего менять» рабочим:
+  предложение с тем значением, что и так стоит, должно разрешиться в ничто, а не
+  в матч между двумя одинаковыми ботами. Обратная сторона — правка
+  `SearchSettings::default` двигает базу под уже написанным планом, и тогда
+  `against: "root"` меряет прогон не от того, с чего он начался. Меняли
+  умолчания — выпишите стартовую конфигурацию в файл явно.
 - **`weights/base.json` — не то, чем играет сервер.** В `eval.rs` числа
   переезжают руками и только после подтверждения на свежих сидах: принятый SPRT
   говорит «лучше предыдущей базы», а не «столько-то Elo».
@@ -224,11 +248,10 @@ git worktree add ../war_chest_ts 61be27f
 
 ## Чего пока нет
 
-- **Ночная лаборатория (`lab`) не перенесена.** Очередь экспериментов без
-  присмотра, журнал вердиктов и круги спуска остались в истории
-  (`git show 61be27f:packages/tooling/src/lab-cli.ts`). Отдельные инструменты
-  цикла — `arena`, `bench`, `sprt`, `spsa`, `regress`, `ladder` — работают.
-  Скрипты `scripts/lab-*.mjs` читают журнал, которого никто не пишет.
+- **Круги спуска в лаборатории не перенесены.** Очередь, вердикты, журнал,
+  `--resume` и подтверждение против корня работают; чего нет — автоматического
+  порождения новых предложений, когда план кончился
+  (`git show 61be27f:packages/tooling/src/lab-cli.ts`, поиск `--descent`).
 - **Инструменты-измерители удалены вместе с пакетами, которые они читали:**
   `feature-drift`, `root-parallel`, `tactic-audit`, `search-shape` и ещё четыре.
   То, что они намерили, записано в комментариях Rust-исходников; сами они — в

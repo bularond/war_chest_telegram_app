@@ -5,6 +5,7 @@
 
 pub mod arena;
 pub mod args;
+pub mod lab;
 pub mod paths;
 pub mod spec;
 pub mod regress;

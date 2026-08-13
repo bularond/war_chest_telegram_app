@@ -6,17 +6,21 @@
 # Node 24 for `node:sqlite` — the database is built into the runtime. The one
 # thing that does have to be compiled is the engine: the rules and the bots are
 # Rust, and they reach Node as a single addon.
+#
+# Debian rather than Alpine, and not by preference: a Node addon is a shared
+# library, and the musl targets do not build one — `cannot produce cdylib for
+# wc-napi as the target aarch64-unknown-linux-musl does not support these crate
+# types`. Both stages have to agree on the libc, so both are glibc.
 
-FROM rust:1-alpine AS core
+FROM rust:1-bookworm AS core
 WORKDIR /core
-RUN apk add --no-cache musl-dev
 
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 RUN cargo build --release -p wc-napi
 
 
-FROM node:24-alpine AS build
+FROM node:24-bookworm-slim AS build
 WORKDIR /app
 
 # Manifests first: this layer is what npm needs, and it only changes when a
@@ -51,7 +55,7 @@ RUN npm run generate \
  && npm prune --omit=dev
 
 
-FROM node:24-alpine AS runtime
+FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
 
 # Only what runs: the workspace symlinks under node_modules/@wc point at these
