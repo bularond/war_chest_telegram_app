@@ -3,21 +3,38 @@
 # The image is the server: it serves the built client itself, so a deployment
 # is one container behind one HTTPS domain, which is what Telegram wants.
 #
-# Node 24 for `node:sqlite` — the database is built into the runtime, so there
-# is no native module to compile and no toolchain in the final image.
+# Node 24 for `node:sqlite` — the database is built into the runtime. The one
+# thing that does have to be compiled is the engine: the rules and the bots are
+# Rust, and they reach Node as a single addon.
+#
+# Debian rather than Alpine, and not by preference: a Node addon is a shared
+# library, and the musl targets do not build one — `cannot produce cdylib for
+# wc-napi as the target aarch64-unknown-linux-musl does not support these crate
+# types`. Both stages have to agree on the libc, so both are glibc.
 
-FROM node:24-alpine AS build
+FROM rust:1-bookworm AS core
+WORKDIR /core
+
+COPY Cargo.toml Cargo.lock ./
+COPY crates ./crates
+RUN cargo build --release -p wc-napi
+
+
+FROM node:24-bookworm-slim AS build
 WORKDIR /app
 
 # Manifests first: this layer is what npm needs, and it only changes when a
 # dependency does, so the install is cached across ordinary edits.
 COPY package.json package-lock.json ./
+COPY packages/core-native/package.json packages/core-native/
 COPY packages/shared/package.json packages/shared/
-COPY packages/bots/package.json packages/bots/
 COPY packages/server/package.json packages/server/
 COPY packages/client/package.json packages/client/
-COPY packages/tooling/package.json packages/tooling/
 RUN npm ci
+
+# The addon, built in the stage above. It is copied rather than compiled here so
+# the Node image never needs a Rust toolchain.
+COPY --from=core /core/target/release/libwc_napi.so packages/core-native/wc-core.node
 
 COPY tsconfig.base.json ./
 COPY packages ./packages
@@ -27,22 +44,29 @@ COPY packages ./packages
 # alternative is a build command that means one thing on a laptop and another
 # on the host, which is how a client and a server come to disagree.
 COPY scripts ./scripts
-# shared → bots → server → client. The bots are not optional: the server's
-# worker imports them, and a missing build only shows up on the bot's turn.
-RUN npm run build && npm prune --omit=dev
+# The steps of `npm run build`, minus the one that would rebuild the addon this
+# stage was just handed. `generate` writes the printed facts out of the addon
+# into the TypeScript the client reads; `--check` in `typecheck` is what stops
+# the two drifting.
+RUN npm run generate \
+ && npm run build -w @wc/shared \
+ && npm run build -w @wc/server \
+ && npm run build -w @wc/client \
+ && npm prune --omit=dev
 
 
-FROM node:24-alpine AS runtime
+FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
 
 # Only what runs: the workspace symlinks under node_modules/@wc point at these
 # directories, so each package keeps its manifest next to its dist.
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./
+COPY --from=build /app/packages/core-native/package.json ./packages/core-native/
+COPY --from=build /app/packages/core-native/index.cjs ./packages/core-native/
+COPY --from=build /app/packages/core-native/wc-core.node ./packages/core-native/
 COPY --from=build /app/packages/shared/package.json ./packages/shared/
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
-COPY --from=build /app/packages/bots/package.json ./packages/bots/
-COPY --from=build /app/packages/bots/dist ./packages/bots/dist
 COPY --from=build /app/packages/server/package.json ./packages/server/
 COPY --from=build /app/packages/server/dist ./packages/server/dist
 COPY --from=build /app/packages/client/dist ./packages/client/dist

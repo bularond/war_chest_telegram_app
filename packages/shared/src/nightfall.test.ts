@@ -1,8 +1,8 @@
 /** War Chest: Nightfall — Poison Counters, Decoy Coins and the four new units. */
 
 import { describe, expect, it } from 'vitest';
-import { actingSeat, applyAction, decoyAvailable, legalActions, poisonedHex } from './engine.js';
-import { createGame } from './setup.js';
+import { actingSeat, applyAction, decoyAvailable, legalActions, poisonedHex } from './rules.js';
+import { createGame } from './rules.js';
 import type { GameAction, GameState } from './types.js';
 import type { CoinId, UnitId } from './units.js';
 

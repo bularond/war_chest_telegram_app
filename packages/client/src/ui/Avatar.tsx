@@ -7,7 +7,9 @@
  * the last resort, for a user with neither photo nor seat.
  */
 
-import { coinArt } from '@wc/shared';
+import {
+  coinArt,
+} from '@wc/shared';
 import { useState } from 'react';
 import { factionForSeat, initials } from './Crest.js';
 

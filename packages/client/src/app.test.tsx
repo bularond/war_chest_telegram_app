@@ -8,15 +8,17 @@
 
 import {
   UNITS,
-  actingSeat,
-  applyAction,
   boardFor,
-  createGame,
-  legalActions,
-  viewFor,
   type GameAction,
   type GameState,
 } from '@wc/shared';
+import {
+  actingSeat,
+  applyAction,
+  createGame,
+  legalActions,
+  viewFor,
+} from '@wc/shared/rules';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App.js';

@@ -10,18 +10,19 @@
 
 import { describe, expect, it } from 'vitest';
 import { STARTING_LOCATIONS } from './board.js';
-import { applyAction, legalActions } from './engine.js';
+import { applyAction, legalActions } from './rules.js';
 import type { HexId } from './hex.js';
-import { checkInvariants } from './invariants.js';
-import { hiddenCoins, publicStateFor, sampleDeterminization } from './observe.js';
-import { playRandomGame, randomPolicy } from './playout.js';
+import { checkInvariants } from './rules.js';
+import { hiddenCoins, publicStateFor, sampleDeterminization } from './rules.js';
+import { playRandomGame, randomPolicy } from './rules.js';
 import { createRng } from './rng.js';
-import { createGame } from './setup.js';
-import { apply, isTerminal } from './state.js';
+import { createGame } from './rules.js';
+import { apply, isTerminal } from './rules.js';
 import type { GameAction } from './types.js';
 import type { GameAction, GameState, Seat } from './types.js';
 import { isDecoy, UNITS, type CoinId, type UnitId, type UnitSet } from './units.js';
-import { viewFor, type GameView } from './view.js';
+import { viewFor } from './rules.js';
+import type { GameView } from './view.js';
 
 function mid(seed: number, sets: readonly UnitSet[], plies: number): GameState {
   const { history } = playRandomGame({ seed, sets, maxPlies: plies }, createRng(seed));

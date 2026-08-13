@@ -1,6 +1,12 @@
 /** The hex board, drawn from the real War Chest layout. */
 
-import { boardFor, fromId, pixelCenter, type GameView, type HexId } from '@wc/shared';
+import {
+  boardFor,
+  fromId,
+  pixelCenter,
+  type GameView,
+  type HexId,
+} from '@wc/shared';
 import { useMemo } from 'react';
 import { CrestImage, factionForSeat, factionForTeam, type Faction } from '../ui/Crest.js';
 

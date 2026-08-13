@@ -27,3 +27,7 @@ weights/lab/
 weights/lab.json
 weights/lab.start.json
 weights/fixes.json
+
+# Rust
+/target
+packages/core-native/*.node

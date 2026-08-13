@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { STARTING_LOCATIONS } from './board.js';
-import { applyAction, deployTargets, legalActions, markersRemaining } from './engine.js';
-import { createGame } from './setup.js';
+import { applyAction, deployTargets, legalActions, markersRemaining } from './rules.js';
+import { createGame } from './rules.js';
 import type { GameAction, GameState } from './types.js';
 import { UNIT_IDS, UNITS, unitsForSets, type UnitId } from './units.js';
 

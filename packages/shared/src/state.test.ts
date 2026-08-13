@@ -6,9 +6,9 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { actingSeat, applyAction, legalActions } from './engine.js';
+import { actingSeat, applyAction, legalActions } from './rules.js';
 import { createRng, nextInt } from './rng.js';
-import { createGame } from './setup.js';
+import { createGame } from './rules.js';
 import {
   actionKey,
   apply,
@@ -20,7 +20,7 @@ import {
   legalMoves,
   moveKey,
   serializeState,
-} from './state.js';
+} from './rules.js';
 import { isCoinAction, type GameAction, type GameState, type PendingStep } from './types.js';
 import type { CoinId, UnitSet } from './units.js';
 

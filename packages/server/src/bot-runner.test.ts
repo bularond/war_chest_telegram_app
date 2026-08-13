@@ -4,12 +4,21 @@
  * server while somebody else is waiting for their own move.
  */
 
-import { actingSeat, applyAction, createGame, publicStateFor, type GameState } from '@wc/shared';
+import {
+  type GameState,
+  type BotLevel,
+} from '@wc/shared';
+import {
+  actingSeat,
+  applyAction,
+  createGame,
+  publicStateFor,
+} from '@wc/shared/rules';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BotPool } from './bot-pool.js';
 import { actingBotSeat, BotRunner, newBotRng, type BotSeat } from './bot-runner.js';
 
-function botGame(seed = 4): GameState {
+function botGame(seed = 4, level: BotLevel = 'easy'): GameState {
   return createGame({
     id: `runner-${seed}`,
     size: 2,
@@ -17,7 +26,7 @@ function botGame(seed = 4): GameState {
     draftMode: 'random',
     seats: [
       { userId: 'human', displayName: 'Игрок' },
-      { userId: 'bot:easy', displayName: 'Бот', bot: 'easy' },
+      { userId: `bot:${level}`, displayName: 'Бот', bot: level },
     ],
   });
 }
@@ -182,13 +191,16 @@ describe('the runner', () => {
   });
 
   it('falls back to a simple move rather than leaving the game stuck', async () => {
-    const state = botGame(16);
+    // A level that thinks, against a deadline of one millisecond: the search
+    // cannot answer inside that, so every turn here comes from the fallback.
+    // Easy no longer serves — the heuristic answers in microseconds now, and
+    // the test it used to fail was passing for the wrong reason.
+    const state = botGame(16, 'medium');
     passTurnToBot(state);
     const before = state.log.length;
 
     const errors: unknown[] = [];
     const moved: string[] = [];
-    // A deadline no worker can meet: every turn must come from the fallback.
     const runner = new BotRunner(
       { limit: 1, thinkMs: 0, deadlineMs: 1 },
       (key) => moved.push(key),

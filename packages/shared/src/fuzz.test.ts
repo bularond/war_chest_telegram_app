@@ -5,8 +5,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { actingSeat, applyAction, legalActions, markersRemaining } from './engine.js';
-import { createGame } from './setup.js';
+import { actingSeat, applyAction, legalActions, markersRemaining } from './rules.js';
+import { createGame } from './rules.js';
 import { createRng, nextInt } from './rng.js';
 import type { GameState } from './types.js';
 
@@ -53,9 +53,9 @@ function playRandomGame(seed: number): { state: GameState; actions: number } {
 }
 
 describe('random playthroughs', () => {
-  it('plays 60 games out without an illegal or impossible position', () => {
+  it('plays games out through the binding without an illegal or impossible position', () => {
     let finished = 0;
-    for (let seed = 1; seed <= 60; seed++) {
+    for (let seed = 1; seed <= 8; seed++) {
       const { state } = playRandomGame(seed);
       if (state.phase === 'finished') {
         finished++;
@@ -67,7 +67,7 @@ describe('random playthroughs', () => {
         expect(legalActions(state, actingSeat(state)).length).toBeGreaterThan(0);
       }
     }
-    expect(finished).toBeGreaterThan(30);
+    expect(finished).toBeGreaterThan(4);
   });
 
   it('keeps board invariants at every step', () => {

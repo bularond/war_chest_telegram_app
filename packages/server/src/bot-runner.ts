@@ -12,15 +12,16 @@
  */
 
 import { randomBytes } from 'node:crypto';
-import { BOTS } from '@wc/bots';
 import {
-  applyAction,
   createRng,
-  publicStateFor,
   type GameState,
   type RngState,
   type Seat,
 } from '@wc/shared';
+import {
+  applyAction,
+  publicStateFor,
+} from '@wc/shared/rules';
 import { BotPool, type BotPoolOptions } from './bot-pool.js';
 import { cpus } from 'node:os';
 
@@ -115,7 +116,15 @@ export class BotRunner {
         // Timed out, crashed, or shutting down. A game left waiting on a bot is
         // worse than a game where the bot played a simpler move, so it plays one.
         this.onError(key, err);
-        action = BOTS.heuristic?.chooseMove(view, { rng: createRng(seed), budget: {} });
+        // A game left waiting on a bot is worse than a game where the bot
+        // played a simpler move, so it plays one. Easy is the heuristic and
+        // answers in microseconds; if even that is unavailable the pool itself
+        // is gone, and the first legal action is better than a dead table.
+        try {
+          action = await this.pool.choose('easy', view, seed);
+        } catch {
+          action = view.legal[0];
+        }
         if (!action) return;
       }
 

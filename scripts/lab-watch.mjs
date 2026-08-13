@@ -31,8 +31,9 @@ const read = (path) => {
 
 const running = () => {
   try {
-    // The lab is one process; the workers it spawns are threads inside it.
-    return execSync('pgrep -f "lab-cli.js" || true', { encoding: 'utf8' }).trim().length > 0;
+    // The lab is one process; the workers it spawns are threads inside it, and
+    // it is a Rust binary now rather than a Node script.
+    return execSync('pgrep -f "release/lab" || true', { encoding: 'utf8' }).trim().length > 0;
   } catch {
     return false;
   }

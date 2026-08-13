@@ -7,13 +7,9 @@
 
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import {
-  applyAction,
   BOT_LEVEL_NAMES,
   botUserId,
-  createGame,
   isBotUserId,
-  legalActions,
-  viewFor,
   type BoardSize,
   type BotLevel,
   type DraftMode,
@@ -28,6 +24,12 @@ import {
   type Seat,
   type UnitSet,
 } from '@wc/shared';
+import {
+  applyAction,
+  createGame,
+  legalActions,
+  viewFor,
+} from '@wc/shared/rules';
 
 export type { Member };
 
