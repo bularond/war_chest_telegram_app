@@ -421,7 +421,14 @@ impl Heuristic {
             Some(s) if s.coins <= 1 && s.team == self.sense.me => s,
             _ => return false,
         };
-        let _ = stack;
+        // It has to be a unit that can swing at all. An Archer beside a Knight
+        // opens nothing by growing — it is printed «can only attack by using its
+        // tactic», and that tactic reaches two hexes, not one. The same false
+        // positive covered the Lancer and the Trebuchet, and rank 1.5 beat
+        // claiming a location and deploying, which are things worth doing.
+        if has_restriction(stack.unit, restrict::NO_NORMAL_ATTACK) {
+            return false;
+        }
         for other in &self.sense.enemy_units {
             if DIST[hex as usize][*other as usize] != 1 {
                 continue;
@@ -854,5 +861,60 @@ fn origin_of(action: Action) -> Option<HexIdx> {
             }
         }
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wc_core::board::{index_of_id, BoardSize};
+    use wc_core::setup::{create_game, CreateGameOptions};
+    use wc_core::types::{GameState, Poison, UnitStack};
+
+    fn beside_a_knight(mine: UnitId) -> (GameState, Heuristic) {
+        let mut opts = CreateGameOptions::new("heuristic", BoardSize::Duel, 1);
+        opts.fixed_units = Some(vec![vec![mine], vec![UnitId::Knight]]);
+        let mut state = create_game(&opts).expect("a game");
+        state.units.clear();
+        let hex = index_of_id("5,2");
+        let team = state.players[0].team;
+        state.units.insert(
+            hex,
+            UnitStack { unit: mine, team, seat: 0, coins: 1, poisoned_by: Poison::None },
+        );
+        let beside = wc_core::engine::adjacent(&state, hex)[0];
+        let theirs = state.players[1].team;
+        state.units.insert(
+            beside,
+            UnitStack {
+                unit: UnitId::Knight,
+                team: theirs,
+                seat: 1,
+                coins: 1,
+                poisoned_by: Poison::None,
+            },
+        );
+        let mut bot = Heuristic::default();
+        bot.sense.fill(state.size, &state.units, &state.control, team);
+        (state, bot)
+    }
+
+    /// The review's B-3. The chart bolsters in one case only: an unbolstered
+    /// unit that wants to hit a Knight and may not. An Archer beside a Knight
+    /// wants nothing of the kind — it is printed «can only attack by using its
+    /// tactic», and the tactic reaches two hexes.
+    #[test]
+    fn bolstering_opens_a_knight_only_for_a_unit_that_could_swing() {
+        let (state, bot) = beside_a_knight(UnitId::Swordsman);
+        assert!(bot.bolster_opens_a_knight(&state, index_of_id("5,2")));
+
+        for tactic_only in [UnitId::Archer, UnitId::Lancer, UnitId::Trebuchet] {
+            let (state, bot) = beside_a_knight(tactic_only);
+            assert!(
+                !bot.bolster_opens_a_knight(&state, index_of_id("5,2")),
+                "{:?} cannot make a normal attack, so growing opens nothing",
+                tactic_only
+            );
+        }
     }
 }

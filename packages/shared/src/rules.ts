@@ -31,6 +31,7 @@ import type {
   DraftMode,
   GameAction,
   GameState,
+  LogEntry,
   PendingStep,
   Seat,
   Team,
@@ -131,9 +132,22 @@ export function applyAction(
   action: GameAction,
   opts: ApplyOptions = {},
 ): void {
+  // The log does not make the trip.
+  //
+  // It is the only part of a state that grows without bound, and sending it
+  // both ways made an action cost time proportional to the game so far —
+  // quadratic over a game, which does not show at all in a two-hundred-ply
+  // match and turns a five-hundred-round one into forty seconds. The core is
+  // handed an empty log, so what comes back is exactly the entries this action
+  // wrote, and they are appended here.
+  //
+  // Nothing in the rules reads the log. The one thing that does is the bot,
+  // through `viewFor`, which is a separate call and gets the whole of it.
+  const held = state.log;
   const next = JSON.parse(
-    core.applyTo(out(state), seat, out(action), opts.validate !== false),
+    core.applyTo(out({ ...state, log: [] }), seat, out(action), opts.validate !== false),
   ) as GameState;
+  (next as { log: LogEntry[] }).log = held.concat(next.log);
   replace(state, next);
 }
 

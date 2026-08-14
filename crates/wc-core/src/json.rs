@@ -223,12 +223,19 @@ pub fn step_to_json(step: &PendingStep) -> Value {
             json!({ "kind": "decreeRecruit", "source": source.key() })
         }
         PendingStep::DecreeLift => json!({ "kind": "decreeLift" }),
-        PendingStep::DecreePlace { unit, coins, from } => json!({
-            "kind": "decreePlace",
-            "unit": unit.key(),
-            "coins": coins,
-            "from": id_of(*from),
-        }),
+        PendingStep::DecreePlace { unit, coins, from, poisoned_by } => {
+            let mut out = obj();
+            out.insert("kind".into(), json!("decreePlace"));
+            out.insert("unit".into(), json!(unit.key()));
+            out.insert("coins".into(), json!(coins));
+            out.insert("from".into(), hex(*from));
+            // Absent unless there is a counter on it, the way a stack on the
+            // board carries the field only when it is poisoned.
+            if let Some(p) = poisoned_by.key() {
+                out.insert("poisonedBy".into(), json!(p));
+            }
+            Value::Object(out)
+        }
         PendingStep::DecreeSpy { target } => json!({ "kind": "decreeSpy", "target": target }),
         PendingStep::DecreeReinforce => json!({ "kind": "decreeReinforce" }),
         PendingStep::HeraldBolster { origin } => {
@@ -800,6 +807,11 @@ pub fn step_from_json(v: &Value) -> Result<PendingStep, String> {
             unit: unit_of("unit")?,
             coins: num("coins"),
             from: h("from"),
+            poisoned_by: match v.get("poisonedBy").and_then(Value::as_str) {
+                Some("assassin") => Poison::Assassin,
+                Some("saboteur") => Poison::Saboteur,
+                _ => Poison::None,
+            },
         },
         "decreeSpy" => PendingStep::DecreeSpy { target: num("target") },
         "decreeReinforce" => PendingStep::DecreeReinforce,

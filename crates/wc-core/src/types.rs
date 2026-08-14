@@ -347,7 +347,11 @@ pub enum PendingStep {
     /// Redeploy: lift one of your units off the board…
     DecreeLift,
     /// …and put it back on a location you control.
-    DecreePlace { unit: UnitId, coins: u8, from: HexIdx },
+    ///
+    /// The counter travels with it: Nightfall says a poisoned unit may be
+    /// redeployed and stays poisoned, and holding only the unit and the coins
+    /// cured it in mid-air.
+    DecreePlace { unit: UnitId, coins: u8, from: HexIdx, poisoned_by: Poison },
     /// Spy: look at an opponent's hand and maybe throw a coin away.
     DecreeSpy { target: Seat },
     /// Reinforce: call a destroyed coin back into your supply.

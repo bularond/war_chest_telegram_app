@@ -151,6 +151,15 @@ fn hidden_decoys(view: &GameView) -> ArrayVec<CoinId, 2> {
                 seen[coin.0 as usize] = true;
             }
         }
+        // A player's own bag is shown to them: its contents are their own coins.
+        // A decoy sitting in it is *known*, and treating it as a slot to be
+        // guessed let a sample put the other decoy there instead — changing
+        // which unit's decoy the search believed was still beside its card.
+        if let Some(bag) = &p.bag {
+            for coin in bag {
+                seen[coin.0 as usize] = true;
+            }
+        }
     }
     for decoy in DECOYS {
         if !seen[decoy.0 as usize] {
@@ -357,4 +366,42 @@ pub fn empty_state(view: &GameView) -> GameState {
 /// The unit a coin names, for callers that only want the drafted ones.
 pub fn drafted_units(view: &GameView, seat: Seat) -> ArrayVec<UnitId, MAX_UNITS> {
     view.players[seat as usize].units.clone()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::board::BoardSize;
+    use crate::setup::{create_game, CreateGameOptions};
+    use crate::units::{SetMask, UnitId, DECOY_INFILTRATOR, DECOY_SKIRMISHER};
+    use crate::view::view_for;
+
+    /// The review's A-8. A player's own bag is shown to them — it is their own
+    /// coins — so a decoy sitting in it is known, not guessed. Treating it as an
+    /// unknown slot let a sample put the *other* decoy there, changing which
+    /// unit's decoy the search believed was still beside its card.
+    #[test]
+    fn a_decoy_the_player_can_see_in_their_own_bag_is_not_guessed_at() {
+        let mut opts = CreateGameOptions::new("observe", BoardSize::Duel, 1);
+        opts.sets = SetMask::base().with(UnitSet::Nightfall);
+        opts.fixed_units =
+            Some(vec![vec![UnitId::Infiltrator, UnitId::Skirmisher], vec![UnitId::Swordsman, UnitId::Archer]]);
+        let mut state = create_game(&opts).expect("a game");
+
+        // One decoy has been planted on seat 0 and has since gone into the bag;
+        // the other is still beside its card.
+        state.players[0].bag.push(DECOY_INFILTRATOR);
+        let view = view_for(&state, 0, Vec::new());
+        assert!(view.players[0].bag.as_ref().unwrap().contains(&DECOY_INFILTRATOR));
+
+        let hidden = hidden_decoys(&view);
+        assert!(
+            !hidden.contains(&DECOY_INFILTRATOR),
+            "a decoy the player is looking at was treated as unknown"
+        );
+        assert!(
+            hidden.contains(&DECOY_SKIRMISHER),
+            "the decoy that really is unaccounted for should still be guessable"
+        );
+    }
 }

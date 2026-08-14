@@ -377,6 +377,13 @@ fn threat_balance(state: &GameState, mine: Team, theirs: Team) -> f64 {
             if has_restriction(other.unit, restrict::NO_NORMAL_ATTACK) {
                 continue;
             }
+            // And the defender's own restrictions: an unbolstered Swordsman
+            // beside a Knight is no threat to it, nor a bolstered one beside a
+            // Bishop. Counting those made the feature measure contact rather
+            // than the thing it is named for.
+            if !wc_core::engine::can_attack_target(state, *n, hex) {
+                continue;
+            }
             if friendly {
                 exposed += 1.0;
             } else {
@@ -797,5 +804,70 @@ fn walk_closeness(state: &GameState, team: Team, steps: &Steps, locations: usize
         0.0
     } else {
         sum / units
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wc_core::board::{index_of_id, BoardSize};
+    use wc_core::setup::{create_game, CreateGameOptions};
+
+    fn duel(units: &[&[UnitId]]) -> GameState {
+        let mut opts = CreateGameOptions::new("eval", BoardSize::Duel, 1);
+        opts.fixed_units = Some(units.iter().map(|u| u.to_vec()).collect());
+        let mut state = create_game(&opts).expect("a game");
+        state.units.clear();
+        state
+    }
+
+    fn put(state: &mut GameState, id: &str, unit: UnitId, seat: Seat, coins: u8) {
+        let team = state.players[seat as usize].team;
+        state.units.insert(
+            index_of_id(id),
+            UnitStack { unit, team, seat, coins, poisoned_by: Poison::None },
+        );
+    }
+
+    /// The review's B-5: the feature is named for stacks standing where they can
+    /// be hit, and it was counting contact instead. An unbolstered Swordsman
+    /// beside a Knight cannot touch it, and a bolstered one beside a Bishop
+    /// cannot either.
+    #[test]
+    fn a_threat_is_an_attack_that_would_be_legal() {
+        let mut state = duel(&[&[UnitId::Swordsman], &[UnitId::Knight]]);
+        put(&mut state, "5,2", UnitId::Swordsman, 0, 1);
+        let beside = wc_core::engine::adjacent(&state, index_of_id("5,2"))[0];
+        let team = state.players[1].team;
+        state.units.insert(
+            beside,
+            UnitStack { unit: UnitId::Knight, team, seat: 1, coins: 1, poisoned_by: Poison::None },
+        );
+        // Seat 1's Knight cannot be attacked by the unbolstered Swordsman, and
+        // the Knight itself can attack — so the balance favours seat 1.
+        assert!(
+            threat_balance(&state, 0, 1) < 0.0,
+            "an unbolstered Swordsman was counted as threatening a Knight"
+        );
+
+        // Bolstered, the attack is legal and the contact is mutual.
+        state.units.get_mut(index_of_id("5,2")).unwrap().coins = 2;
+        assert_eq!(threat_balance(&state, 0, 1), 0.0);
+    }
+
+    #[test]
+    fn a_bolstered_unit_is_no_threat_to_a_bishop() {
+        let mut state = duel(&[&[UnitId::Swordsman], &[UnitId::Bishop]]);
+        put(&mut state, "5,2", UnitId::Swordsman, 0, 2);
+        let beside = wc_core::engine::adjacent(&state, index_of_id("5,2"))[0];
+        let team = state.players[1].team;
+        state.units.insert(
+            beside,
+            UnitStack { unit: UnitId::Bishop, team, seat: 1, coins: 1, poisoned_by: Poison::None },
+        );
+        assert!(
+            threat_balance(&state, 0, 1) < 0.0,
+            "a bolstered unit was counted as threatening a Bishop"
+        );
     }
 }

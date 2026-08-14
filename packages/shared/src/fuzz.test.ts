@@ -10,7 +10,17 @@ import { createGame } from './rules.js';
 import { createRng, nextInt } from './rng.js';
 import type { GameState } from './types.js';
 
-const MAX_ACTIONS = 4000;
+/**
+ * A few hundred, not a few thousand.
+ *
+ * Random play sometimes reaches a position nobody can end — every coin burnt
+ * onto the board, both supplies drained, each turn one coin long — and that is
+ * documented behaviour, not a deadlock. What is checked here is that the rules
+ * reach TypeScript intact; whether a *game* terminates is a property, and the
+ * property testing is in `crates/wc-core/tests/fuzz.rs`, where it runs across
+ * every set combination in a twentieth of a second.
+ */
+const MAX_ACTIONS = 300;
 
 function playRandomGame(seed: number): { state: GameState; actions: number } {
   const rng = createRng(seed);

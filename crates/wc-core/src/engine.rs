@@ -442,20 +442,17 @@ fn reachable(state: &GameState, from: HexIdx, steps: u8, out: &mut HexList) {
     out.extend(frontier.into_iter()); // exactly `steps` away
 }
 
-/// The charging stack is the attacker, so the Knight check uses its own size.
+/// Whether a charge may finish on `target`.
+///
+/// This used to be a function of its own, and being a second copy of
+/// `can_attack_target` is exactly what was wrong with it: it knew about the
+/// Knight and not about the Bishop, and it required a unit — so a bolstered
+/// Cavalry could charge a Bishop it may not touch, and nobody could charge an
+/// empty Fortification. The charging stack is the attacker either way, and the
+/// checks are the same checks.
+#[inline]
 fn can_charge(state: &GameState, from: HexIdx, target: HexIdx) -> bool {
-    let mover = match state.units.get(from) {
-        Some(m) => m,
-        None => return false,
-    };
-    let victim = match state.units.get(target) {
-        Some(v) => v,
-        None => return false,
-    };
-    if victim.team == mover.team {
-        return false;
-    }
-    !(has_attribute(victim.unit, attr::ONLY_ATTACKED_BY_BOLSTERED) && mover.coins < 2)
+    can_attack_target(state, from, target)
 }
 
 /// Destination/target pairs for a charge.
@@ -476,18 +473,27 @@ fn charge_options(
     }
 
     if straight_line {
+        let team = state.units.get(from).map(|s| s.team).unwrap_or(0);
         for dir in 0..6usize {
             for d in min..=max {
                 let mut hex = from;
                 let mut blocked = false;
-                for _ in 0..d {
+                for step in 1..=d {
                     let n = STEPS[hex as usize][dir];
                     if n == NONE {
                         blocked = true;
                         break;
                     }
                     hex = n;
-                    if !is_on_board(state, n) || state.units.occupied(n) {
+                    // The lane obeys the rules every other move obeys: a
+                    // Fortification may be landed on but never passed through,
+                    // and an enemy-held one may not be entered at all.
+                    let ok = if step == d {
+                        can_enter(state, team, n)
+                    } else {
+                        can_pass_through(state, team, n)
+                    };
+                    if !ok {
                         blocked = true;
                     }
                 }
@@ -577,10 +583,21 @@ fn tactic_actions(
 
         match spec {
             Tactic::RangedAttack { min, max, straight_line, blocked } => {
-                for (target, stack) in state.units.iter() {
-                    if stack.team == team {
-                        continue;
+                // Stacks first, then the Fortifications nobody is standing on:
+                // a lone fort is a legal target for any attack that could reach
+                // a unit there, and walking `state.units` never finds one.
+                let mut targets: HexList = HexList::new();
+                for (hex, stack) in state.units.iter() {
+                    if stack.team != team {
+                        targets.push(hex);
                     }
+                }
+                for hex in &board_for(state.size).hexes {
+                    if state.forts[*hex as usize] && !state.units.occupied(*hex) {
+                        targets.push(*hex);
+                    }
+                }
+                for target in targets {
                     let d = DIST[from as usize][target as usize];
                     if d < min || d > max {
                         continue;
@@ -813,7 +830,12 @@ fn coin_actions(state: &GameState, seat: Seat, coin_index: u8, coin: CoinId, out
 
     // Facedown actions are available with any coin, including the Royal Coin.
     out.push(Action::coin(ActionKind::Pass, coin_index));
-    if !me.has_initiative && !state.initiative_moved_this_round {
+    // Whether *the side* already holds it, not whether this seat does: in a
+    // four-player game a player could otherwise take the marker off their own
+    // partner, which is a move the box does not contain. In a duel a side is
+    // one player and the two readings coincide.
+    let ours = state.players.iter().any(|p| p.has_initiative && p.team == me.team);
+    if !ours && !state.initiative_moved_this_round {
         out.push(Action::coin(ActionKind::ClaimInitiative, coin_index));
     }
     for unit in &me.units {
@@ -1429,13 +1451,44 @@ fn apply_poison(state: &mut GameState, seat: Seat, poisoner: UnitId, target_hex:
 }
 
 /// Pushes the steps a unit's attributes create the moment a coin of it is
-/// recruited. Only the Saboteur has one, and the step is pushed whether or not a
-/// Saboteur is standing anywhere — `pending_actions` answers with a bare skip.
-fn after_recruit(state: &mut GameState, unit: UnitId) {
-    if !has_attribute(unit, attr::TACTIC_ON_RECRUIT) {
-        return;
+/// recruited.
+///
+/// **Whichever action did the recruiting.** The Mercenary's free maneuver used
+/// to be written inline in the paid `recruit` branch, so a Mercenary recruited
+/// by the Enlist decree — or by the Bishop's tactic — got nothing, though the
+/// Nobility rulesheet names that exact combination as working. A recruit is a
+/// recruit.
+///
+/// The Saboteur's step is pushed whether or not a Saboteur is standing anywhere;
+/// `pending_actions` answers with a bare skip when none is, which is the shape
+/// every other optional step has.
+fn after_recruit(state: &mut GameState, seat: Seat, unit: UnitId) {
+    if has_attribute(unit, attr::FREE_MANEUVER_ON_RECRUIT) {
+        if let Some(hex) = deployed_units(state, seat, unit).first() {
+            state.pending.push(PendingStep::ManeuverUnit {
+                hex: *hex,
+                source: StepSource::Mercenary,
+                optional: true,
+            });
+        }
     }
-    state.pending.push(PendingStep::FreeTactic { unit });
+    if has_attribute(unit, attr::TACTIC_ON_RECRUIT) {
+        state.pending.push(PendingStep::FreeTactic { unit });
+    }
+}
+
+/// Pushes the steps a unit's attributes create the moment it lands on the board.
+///
+/// Same reason as [`after_recruit`]: a deploy is a deploy, and the Redeploy
+/// decree put a stack down by writing it into the board directly — so an Earl
+/// redeployed never got its move and a Siege Tower never got its bolster.
+fn after_deploy(state: &mut GameState, seat: Seat, unit: UnitId, hex: HexIdx) {
+    if has_attribute(unit, attr::MOVE_AFTER_DEPLOY) {
+        state.pending.push(PendingStep::OptionalMove { hex, source: StepSource::Earl });
+    }
+    if has_attribute(unit, attr::BOLSTER_ON_DEPLOY) && state.player(seat).supply_of(unit) > 0 {
+        state.pending.push(PendingStep::BolsterSelf { hex });
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -1541,10 +1594,13 @@ fn apply_tactic(state: &mut GameState, seat: Seat, action: Action) -> EngineResu
             let mut hexes = deployed_units(state, seat, stack.unit);
             hexes.reverse();
             for hex in hexes {
+                // Not optional: the card says «perform one maneuver with each
+                // Footman unit», and an optional step let a player skip the one
+                // that would have hurt.
                 state.pending.push(PendingStep::ManeuverUnit {
                     hex,
                     source: StepSource::Footman,
-                    optional: true,
+                    optional: false,
                 });
             }
         }
@@ -1626,6 +1682,13 @@ fn apply_tactic(state: &mut GameState, seat: Seat, action: Action) -> EngineResu
                 return Err("tactic needs a space and a fort");
             }
             move_stack(state, action.from, action.to)?;
+            // The move half is a move. On the printed board this can raise
+            // nothing — a wall stands on a location, the tactic hits something
+            // adjacent to the landing hex, and no two locations touch — so the
+            // attribute is unreachable *by accident of the geometry*, and the
+            // accident belongs to the board rather than to this line. A test in
+            // `review.rs` pins it.
+            after_maneuver(state, action.to, seat, Maneuver::Move);
             resolve_attack(state, action.to, action.target, seat)?;
         }
         Tactic::RoyalRedeploy { .. } => {
@@ -1683,17 +1746,7 @@ fn apply_coin_action(state: &mut GameState, seat: Seat, action: Action) -> Engin
             me.supply[unit as usize] -= 1;
             me.discard.push(DiscardEntry { coin: CoinId::unit(unit), face_up: true });
             log_unit(state, seat, LogKind::Recruit, unit);
-            // The Mercenary's coin gives the deployed Mercenary a free maneuver.
-            if has_attribute(unit, attr::FREE_MANEUVER_ON_RECRUIT) {
-                if let Some(hex) = deployed_units(state, seat, unit).first() {
-                    state.pending.push(PendingStep::ManeuverUnit {
-                        hex: *hex,
-                        source: StepSource::Mercenary,
-                        optional: true,
-                    });
-                }
-            }
-            after_recruit(state, unit);
+            after_recruit(state, seat, unit);
         }
         ActionKind::Deploy => {
             let me = state.player(seat);
@@ -1709,16 +1762,7 @@ fn apply_coin_action(state: &mut GameState, seat: Seat, action: Action) -> Engin
                 UnitStack { unit, team, seat, coins: 1, poisoned_by: Poison::None },
             );
             log_unit_hex(state, seat, LogKind::Deploy, unit, action.to);
-            if has_attribute(unit, attr::MOVE_AFTER_DEPLOY) {
-                state
-                    .pending
-                    .push(PendingStep::OptionalMove { hex: action.to, source: StepSource::Earl });
-            }
-            if has_attribute(unit, attr::BOLSTER_ON_DEPLOY)
-                && state.player(seat).supply_of(unit) > 0
-            {
-                state.pending.push(PendingStep::BolsterSelf { hex: action.to });
-            }
+            after_deploy(state, seat, unit, action.to);
         }
         ActionKind::Bolster => {
             let me = state.player(seat);
@@ -1797,9 +1841,10 @@ fn apply_follow_up(state: &mut GameState, seat: Seat, action: Action) -> EngineR
                     return Err("maneuver is mandatory");
                 }
             }
-            PendingStep::DecreePlace { unit, coins, from } => {
+            PendingStep::DecreePlace { unit, coins, from, poisoned_by } => {
                 // Redeploy with nowhere to land: the stack goes back where it
-                // was lifted from, rather than off the table.
+                // was lifted from, rather than off the table — and back as it
+                // was, counter included.
                 if !state.units.occupied(*from) {
                     let team = state.player(seat).team;
                     state.units.insert(
@@ -1809,7 +1854,7 @@ fn apply_follow_up(state: &mut GameState, seat: Seat, action: Action) -> EngineR
                             team,
                             seat,
                             coins: *coins,
-                            poisoned_by: Poison::None,
+                            poisoned_by: *poisoned_by,
                         },
                     );
                 }
@@ -1873,7 +1918,7 @@ fn apply_follow_up(state: &mut GameState, seat: Seat, action: Action) -> EngineR
                     });
                 }
             }
-            after_recruit(state, unit);
+            after_recruit(state, seat, unit);
         }
         ActionKind::FollowLift => {
             let stack = state.units.remove(action.from).ok_or("nothing to lift")?;
@@ -1882,20 +1927,22 @@ fn apply_follow_up(state: &mut GameState, seat: Seat, action: Action) -> EngineR
                 unit: stack.unit,
                 coins: stack.coins,
                 from: action.from,
+                poisoned_by: stack.poisoned_by,
             });
         }
         ActionKind::FollowPlace => {
-            let (unit, coins) = match step {
-                PendingStep::DecreePlace { unit, coins, .. } => (unit, coins),
+            let (unit, coins, poisoned_by) = match step {
+                PendingStep::DecreePlace { unit, coins, poisoned_by, .. } => {
+                    (unit, coins, poisoned_by)
+                }
                 _ => return Err("nothing to place"),
             };
             let team = state.player(seat).team;
-            // The stack goes back down as it was: Redeploy moves the unit, not a coin.
-            state.units.insert(
-                action.to,
-                UnitStack { unit, team, seat, coins, poisoned_by: Poison::None },
-            );
+            // The stack goes back down as it was: Redeploy moves the unit, not a
+            // coin, and the Poison Counter goes with it.
+            state.units.insert(action.to, UnitStack { unit, team, seat, coins, poisoned_by });
             log_unit_hex(state, seat, LogKind::Deploy, unit, action.to);
+            after_deploy(state, seat, unit, action.to);
         }
         ActionKind::FollowSpy => {
             let target_seat = match step {

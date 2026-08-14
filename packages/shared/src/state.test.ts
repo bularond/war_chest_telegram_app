@@ -57,7 +57,18 @@ function pick(state: GameState, legal: GameAction[], rng: { seed: number }): Gam
 }
 
 /** Plays a game out with `apply`, never mutating a state it has already seen. */
-function playPure(seed: number, sets: readonly UnitSet[] = [], maxActions = 4000) {
+/**
+ * A game played the way a caller with its own copy would play it.
+ *
+ * The cap is a few hundred rather than a few thousand on purpose. Random play
+ * sometimes reaches a position nobody can end — every coin burnt onto the board,
+ * both supplies drained, each turn one coin long — and that is documented
+ * behaviour rather than a deadlock. Playing one of those to four thousand plies
+ * here costs half a minute and tests nothing: this file is about `apply` leaving
+ * the state it was handed alone, and three hundred plies say that as well as
+ * four thousand. The property testing lives in `crates/wc-core/tests`.
+ */
+function playPure(seed: number, sets: readonly UnitSet[] = [], maxActions = 300) {
   const rng = createRng(seed);
   const states: GameState[] = [newGame(seed, sets)];
   let state = states[0] as GameState;
@@ -104,7 +115,7 @@ describe('canonical text', () => {
     };
 
     for (const seed of [1, 5, 9]) {
-      const { states } = playPure(seed, ['nobility', 'siege', 'nightfall'], 400);
+      const { states } = playPure(seed, ['nobility', 'siege', 'nightfall'], 200);
       for (const state of states) {
         expect(serializeState(state)).toBe(reference(state));
         for (const action of legalMoves(state)) {
@@ -138,7 +149,7 @@ describe('pure state handling', () => {
   });
 
   it('holds up with the expansions in play', () => {
-    const { state, actions } = playPure(7, ['nobility', 'siege', 'nightfall'], 1500);
+    const { state, actions } = playPure(7, ['nobility', 'siege', 'nightfall'], 300);
     expect(actions).toBeGreaterThan(20);
     expect(state.decrees.length).toBeGreaterThan(0);
   });
