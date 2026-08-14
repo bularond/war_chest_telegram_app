@@ -18,6 +18,10 @@ services:
       # BIND=0.0.0.0 to open it up, e.g. to reach a laptop from a phone.
       - '${BIND:-127.0.0.1}:${PORT:-8787}:8787'
     environment:
+      # `both` unless told otherwise: one machine doing everything, which is
+      # what this file has always described. Set ROLE=app here when the chat
+      # runs elsewhere — see docker-compose.chat.yml.
+      ROLE: ${ROLE:-both}
       # Fixed inside the container; the host side is the port mapping above.
       PORT: 8787
       HOST: 0.0.0.0

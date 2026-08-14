@@ -16,7 +16,60 @@
     />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!--
+        React clears this on the first render, so it is only ever seen while
+        the app is still coming up — or instead of it, if it never does. A
+        white screen is the one failure nobody can report: it looks the same
+        whether a file did not arrive, the bundle threw, or the phone is
+        simply slow. This says which.
+      -->
+      <div id="boot" style="padding: 24px; text-align: center; color: #645c50">
+        <div style="font-size: 15px">Загружаем…</div>
+        <div id="boot-why" style="margin-top: 12px; font-size: 13px; white-space: pre-wrap"></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      /*
+       * Deliberately not a module. A module is deferred whatever it is written
+       * next to — the build moves the bundle's tag into <head> and it still
+       * runs after parsing — while this runs as the parser reaches it. So
+       * these handlers are in place before the bundle executes, which is the
+       * only way they can report on it. Nothing here imports anything, for the
+       * same reason: if the bundle is what failed, this is all that is left.
+       */
+      (function () {
+        var why = document.getElementById('boot-why');
+        var told = false;
+        function tell(text) {
+          // Once React has rendered, the node is gone from the document and
+          // there is nothing to report: the app came up, and whatever failed
+          // did not stop it.
+          if (told || !why || !why.isConnected) return;
+          told = true;
+          why.textContent = text;
+        }
+        // Capture, because a failed <script> or <link> fires an error event on
+        // the element itself and that one does not bubble.
+        addEventListener(
+          'error',
+          function (e) {
+            tell(
+              e.target && e.target.src
+                ? 'Не загрузился файл:\n' + e.target.src
+                : 'Ошибка: ' + (e.message || e.error),
+            );
+          },
+          true,
+        );
+        addEventListener('unhandledrejection', function (e) {
+          tell('Ошибка: ' + ((e.reason && e.reason.message) || e.reason));
+        });
+        setTimeout(function () {
+          tell('Приложение не отвечает. Обновите страницу; если не поможет — покажите этот экран.');
+        }, 15000);
+      })();
+    </script>
   </body>
 </html>

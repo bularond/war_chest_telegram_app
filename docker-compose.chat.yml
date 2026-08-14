@@ -1,0 +1,38 @@
+# The chat half, alone: `docker compose -f docker-compose.chat.yml up -d`.
+#
+# For the case where the Mini App and Telegram are reachable from different
+# places. The app has to be reachable by the player's phone; this has to reach
+# api.telegram.org — and where one address is blocked for the other's network,
+# they stop fitting on one machine. This file is the second machine.
+#
+# Nothing here listens. There is no port, no volume, no database and no game
+# engine: the process holds a long poll open and answers every message with the
+# button into the app named by PUBLIC_URL. That app may be anywhere, and this
+# container never speaks to it — the player's browser does.
+#
+# Put the token and PUBLIC_URL in `.env` next to this file, exactly as on the
+# app machine. The token has to be the same one: it is what signs the launches
+# the app verifies.
+
+services:
+  chat:
+    build: .
+    image: war-chest:latest
+    container_name: war-chest-chat
+    restart: unless-stopped
+    environment:
+      ROLE: chat
+      # Telegram hands updates to one poller per token. If a second process
+      # anywhere is polling this token, both see `Conflict` in the log and
+      # greetings start going missing — so the app machine runs ROLE=app.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?a chat with no token has nothing to poll with}
+      PUBLIC_URL: ${PUBLIC_URL:?the button needs the address the app answers on}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    # No healthcheck on purpose. There is no endpoint to ask, and the poll loop
+    # catches its own errors rather than exiting — so a wedged poller would not
+    # be caught by one either. What to watch instead is the log: a `Conflict`
+    # means a second poller, an `Unauthorized` means the wrong token.
+
+# Building the whole image here compiles the Rust core that this role never
+# loads. On a small box it is quicker to build elsewhere and ship the result —
+# the recipe is in README, under «На VPS».
